@@ -1,11 +1,43 @@
 import { useState } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const role = searchParams.get("role") || "student";
     const [showPassword, setShowPassword] = useState(false);
+    const { login } = useAuth();
+    const [error, setError] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
+
+    const handleLogin = async (e) => {
+        e.preventDefault();
+        setError("");
+        setIsLoading(true);
+        try {
+            const email = e.target.email.value;
+            const password = e.target.password.value;
+
+            if (!email || !password) {
+                throw new Error("Please enter both email and password.");
+            }
+
+            const user = await login(email, password);
+            navigate(user.role === "tutor" ? "/tutor/dashboard" : "/dashboard");
+        } catch (err) {
+            // Enhanced error mapping to provide friendlier messages
+            let errorMessage = err.message;
+            if (errorMessage === "Failed to fetch") {
+                errorMessage = "Cannot connect to server. Please check your internet connection or try again later.";
+            } else if (errorMessage.toLowerCase().includes("invalid credentials") || errorMessage.includes("401")) {
+                errorMessage = "Incorrect email or password. Please try again.";
+            }
+            setError(errorMessage);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
         <div className="min-h-screen h-screen bg-bg-light flex overflow-hidden">
@@ -89,8 +121,14 @@ export default function Login() {
                             <div className="flex-1 h-px bg-gray-200" />
                         </div>
 
+                        {error && (
+                            <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
+                                {error}
+                            </div>
+                        )}
+
                         {/* Email & Password */}
-                        <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); navigate(role === "tutor" ? "/tutor/dashboard" : "/dashboard"); }}>
+                        <form className="space-y-5" onSubmit={handleLogin}>
                             <div>
                                 <label
                                     htmlFor="email"
@@ -165,9 +203,10 @@ export default function Login() {
 
                             <button
                                 type="submit"
-                                className="w-full bg-primary hover:bg-blue-800 text-white font-semibold py-3.5 rounded-full shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5"
+                                disabled={isLoading}
+                                className="w-full bg-primary hover:bg-blue-800 text-white font-semibold py-3.5 rounded-full shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 disabled:opacity-70 disabled:hover:translate-y-0"
                             >
-                                Log In
+                                {isLoading ? "Logging in..." : "Log In"}
                             </button>
                         </form>
 

@@ -1,18 +1,49 @@
 import { useState } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
+import { AuthAPI } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
 export default function SignUp() {
     const [searchParams] = useSearchParams();
-    const role = searchParams.get("role") || "student";
+    const role = searchParams.get("role") || "tutee"; // Match backend role enum if possible
     const [showPassword, setShowPassword] = useState(false);
     const navigate = useNavigate();
+    const { login } = useAuth();
 
-    const handleSubmit = (e) => {
+    const [error, setError] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        if (role === "tutor") {
-            navigate("/onboarding/tutor");
-        } else {
-            navigate("/onboarding/student");
+        setError("");
+        setIsLoading(true);
+
+        const firstName = e.target.first.value.trim();
+        const lastName = e.target.last.value.trim();
+        const email = e.target.email.value.trim();
+        const password = e.target.password.value;
+
+        try {
+            // Register
+            await AuthAPI.register({
+                full_name: `${firstName} ${lastName}`,
+                email,
+                password,
+                role: role // 'tutor' or 'tutee'
+            });
+
+            // Auto-login after registration
+            await login(email, password);
+
+            if (role === "tutor") {
+                navigate("/onboarding/tutor");
+            } else {
+                navigate("/onboarding/student");
+            }
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -116,6 +147,12 @@ export default function SignUp() {
                             <div className="flex-1 h-px bg-gray-200" />
                         </div>
 
+                        {error && (
+                            <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
+                                {error}
+                            </div>
+                        )}
+
                         <form className="space-y-4" onSubmit={handleSubmit}>
                             {/* Name row */}
                             <div className="grid grid-cols-2 gap-3">
@@ -154,7 +191,7 @@ export default function SignUp() {
                                         id="email"
                                         type="email"
                                         placeholder="example@gmail.com"
-                                        className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
+                                        className="w-full pl-11 pr-4 py-3 rounded-xl border border-gppray-200 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
                                     />
                                 </div>
                             </div>
@@ -205,9 +242,10 @@ export default function SignUp() {
 
                             <button
                                 type="submit"
-                                className="w-full bg-primary hover:bg-blue-800 text-white font-semibold py-3.5 rounded-full shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5"
+                                disabled={isLoading}
+                                className="w-full bg-primary hover:bg-blue-800 text-white font-semibold py-3.5 rounded-full shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 disabled:opacity-70 disabled:hover:translate-y-0"
                             >
-                                Create Account
+                                {isLoading ? "Creating Account..." : "Create Account"}
                             </button>
                         </form>
 
