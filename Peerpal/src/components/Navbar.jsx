@@ -6,7 +6,7 @@ export default function Navbar() {
 
     return (
         <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="w-full px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between h-20 items-center">
                     {/* Logo */}
                     <Link to="/" className="flex items-center gap-2 group">
@@ -26,8 +26,8 @@ export default function Navbar() {
                             Testimonials
                         </a>
                         <Link
-                            to="/get-started"
-                            className="bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-full font-semibold transition shadow-lg shadow-primary/20"
+                            to="/login"
+                            className="text-gray-700 hover:text-primary font-semibold px-4 py-2.5 transition"
                         >
                             Log In
                         </Link>

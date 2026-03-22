@@ -37,6 +37,7 @@ import Students from "./pages/tutor/Students";
 import TutorSettings from "./pages/tutor/TutorSettings";
 
 /* Admin Portal */
+import AdminLogin from "./pages/admin/AdminLogin";
 import AdminDashboardLayout from "./layouts/AdminDashboardLayout";
 import AdminDashboardHome from "./pages/admin/AdminDashboardHome";
 import AdminUsers from "./pages/admin/AdminUsers";
@@ -96,6 +97,7 @@ function App() {
         </Route>
 
         {/* Admin Dashboard */}
+        <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin/dashboard" element={<AdminDashboardLayout />}>
           <Route index element={<AdminDashboardHome />} />
           <Route path="users" element={<AdminUsers />} />

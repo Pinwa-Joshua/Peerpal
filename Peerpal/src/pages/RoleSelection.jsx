@@ -28,7 +28,7 @@ export default function RoleSelection() {
         <div className="min-h-screen bg-bg-light flex flex-col">
             {/* Minimal top bar */}
             <nav className="bg-white/90 backdrop-blur-md border-b border-gray-100">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center h-20">
+                <div className="w-full px-4 sm:px-6 lg:px-8 flex items-center justify-between h-20">
                     <Link to="/" className="flex items-center gap-2 group">
                         <img src="/icon.png" alt="PeerPal" className="h-10 w-auto" />
                         <span className="text-xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent group-hover:opacity-80 transition">
@@ -63,7 +63,7 @@ export default function RoleSelection() {
                         {roles.map((role) => (
                             <Link
                                 key={role.id}
-                                to={`/login?role=${role.id}`}
+                                to={`/signup?role=${role.id}`}
                                 className="group relative bg-white rounded-2xl border border-gray-100 p-8 text-left shadow-soft hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
                             >
                                 {/* Icon */}
