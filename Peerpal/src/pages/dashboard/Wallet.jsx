@@ -53,7 +53,7 @@ export default function Wallet() {
                         Available Balance
                     </p>
                     <p className="text-3xl font-bold">
-                        R{BALANCE.available.toLocaleString()}
+                        ₦{BALANCE.available.toLocaleString()}
                     </p>
                     <button className="mt-4 bg-white text-primary text-sm font-semibold px-5 py-2 rounded-full hover:bg-gray-100 transition shadow-lg">
                         Add Funds
@@ -64,7 +64,7 @@ export default function Wallet() {
                         Total Spent
                     </p>
                     <p className="text-3xl font-bold text-gray-900">
-                        R{BALANCE.totalSpent.toLocaleString()}
+                        ₦{BALANCE.totalSpent.toLocaleString()}
                     </p>
                     <p className="text-xs text-gray-400 mt-2">This semester</p>
                 </div>

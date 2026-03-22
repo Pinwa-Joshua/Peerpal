@@ -23,8 +23,16 @@ export default function Login() {
                 throw new Error("Please enter both email and password.");
             }
 
-            const user = await login(email, password);
-            navigate(user.role === "tutor" ? "/tutor/dashboard" : "/dashboard");
+            const user = await login(email, password, role);
+
+            // Route based on mock role
+            if (user.role === "admin") {
+                navigate("/admin/dashboard");
+            } else if (user.role === "tutor") {
+                navigate("/tutor/dashboard");
+            } else {
+                navigate("/dashboard");
+            }
         } catch (err) {
             // Enhanced error mapping to provide friendlier messages
             let errorMessage = err.message;

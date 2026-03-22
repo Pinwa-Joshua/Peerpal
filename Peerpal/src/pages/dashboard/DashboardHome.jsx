@@ -255,7 +255,7 @@ export default function DashboardHome() {
                             </div>
                             <div className="flex items-center justify-between">
                                 <span className="text-gray-500 font-medium text-sm">
-                                    R{tutor.rate}/hr
+                                    ₦{tutor.rate}/hr
                                 </span>
                                 <Link
                                     to="/dashboard/browse"

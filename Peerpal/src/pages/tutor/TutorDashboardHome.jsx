@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 const STATS = [
     { label: "Sessions Taught", value: "38", icon: "school", color: "bg-teal-50 text-tutor" },
     { label: "Active Students", value: "12", icon: "groups", color: "bg-blue-50 text-blue-600" },
-    { label: "Total Earned", value: "R4,560", icon: "payments", color: "bg-emerald-50 text-emerald-600" },
+    { label: "Total Earned", value: "₦4,560", icon: "payments", color: "bg-emerald-50 text-emerald-600" },
     { label: "Avg Rating", value: "4.9", icon: "star", color: "bg-amber-50 text-amber-600" },
 ];
 

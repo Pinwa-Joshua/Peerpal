@@ -389,7 +389,7 @@ export default function SessionDetail() {
                             Rate
                         </p>
                         <p className="font-semibold text-gray-900 mt-0.5">
-                            R{session.rate}/hr
+                            ₦{session.rate}/hr
                         </p>
                         <p className={`text-sm font-semibold mt-0.5 ${session.paid ? "text-green-600" : "text-yellow-600"}`}>
                             {session.paid ? "Paid" : "Payment pending"}

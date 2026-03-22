@@ -266,7 +266,7 @@ export default function TutorSessionDetail() {
                             Earnings
                         </p>
                         <p className="font-semibold text-gray-900 mt-0.5">
-                            R{session.rate}
+                            ₦{session.rate}
                         </p>
                         <p className={`text-sm font-semibold mt-0.5 ${session.paid ? "text-green-600" : "text-yellow-600"}`}>
                             {session.paid ? "Paid" : "Pending payment"}

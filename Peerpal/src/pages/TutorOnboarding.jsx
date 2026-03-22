@@ -663,7 +663,7 @@ function StepRates({ data, onChange }) {
             />
           </div>
           <p className="text-xs text-gray-400 mt-1.5">
-            Average tutor rate on PeerPal is R100–R150/hr
+            Average tutor rate on PeerPal is ₦100–₦150/hr
           </p>
         </div>
       </div>
@@ -729,7 +729,7 @@ function StepDone({ data }) {
           <div>
             <p className="text-gray-400 font-medium mb-0.5">Rate</p>
             <p className="text-gray-900 font-semibold">
-              R{data.rate || "—"}/hr
+              ₦{data.rate || "—"}/hr
             </p>
           </div>
           <div>

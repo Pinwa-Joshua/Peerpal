@@ -86,7 +86,7 @@ export default function Hero() {
 
                             <div className="mt-6 flex justify-between items-center">
                                 <span className="text-gray-500 font-medium text-sm">
-                                    R150 / hr
+                                    ₦150 / hr
                                 </span>
                                 <button className="bg-primary text-white text-sm font-semibold px-5 py-2 rounded-lg hover:bg-blue-800 transition">
                                     Book Session

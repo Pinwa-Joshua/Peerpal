@@ -60,7 +60,7 @@ export default function Earnings() {
                 <div className="bg-gradient-to-br from-tutor to-tutor-light rounded-2xl p-5 text-white col-span-2 sm:col-span-1">
                     <p className="text-sm font-medium text-teal-100">Available</p>
                     <p className="text-3xl font-display font-extrabold mt-1">
-                        R{BALANCE.available.toLocaleString()}
+                        ₦{BALANCE.available.toLocaleString()}
                     </p>
                     <button className="mt-3 bg-white/20 hover:bg-white/30 text-white text-sm font-semibold px-4 py-2 rounded-full transition">
                         Withdraw
@@ -69,19 +69,19 @@ export default function Earnings() {
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-soft p-5">
                     <p className="text-xs text-gray-400 font-semibold uppercase">Pending</p>
                     <p className="text-2xl font-display font-extrabold text-gray-900 mt-1">
-                        R{BALANCE.pending.toLocaleString()}
+                        ₦{BALANCE.pending.toLocaleString()}
                     </p>
                 </div>
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-soft p-5">
                     <p className="text-xs text-gray-400 font-semibold uppercase">This Month</p>
                     <p className="text-2xl font-display font-extrabold text-gray-900 mt-1">
-                        R{BALANCE.thisMonth.toLocaleString()}
+                        ₦{BALANCE.thisMonth.toLocaleString()}
                     </p>
                 </div>
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-soft p-5">
                     <p className="text-xs text-gray-400 font-semibold uppercase">Total Earned</p>
                     <p className="text-2xl font-display font-extrabold text-gray-900 mt-1">
-                        R{BALANCE.total.toLocaleString()}
+                        ₦{BALANCE.total.toLocaleString()}
                     </p>
                 </div>
             </div>
@@ -100,7 +100,7 @@ export default function Earnings() {
                                         {s.subject}
                                     </p>
                                     <p className="text-sm font-bold text-gray-900">
-                                        R{s.earned.toLocaleString()}
+                                        ₦{s.earned.toLocaleString()}
                                     </p>
                                 </div>
                                 <div className="h-2 bg-gray-100 rounded-full overflow-hidden">

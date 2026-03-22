@@ -2,18 +2,16 @@ import { useState } from "react";
 import { NavLink, Outlet, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
-/* ─── sidebar nav items ─── */
+/* ─── admin nav items ─── */
 const NAV_ITEMS = [
-    { to: "/dashboard", icon: "dashboard", label: "Dashboard", end: true },
-    { to: "/dashboard/browse", icon: "search", label: "Browse Tutors" },
-    { to: "/dashboard/sessions", icon: "event_note", label: "My Sessions" },
-    { to: "/dashboard/messages", icon: "chat_bubble", label: "Messages" },
-    { to: "/dashboard/progress", icon: "insights", label: "Progress" },
-    { to: "/dashboard/wallet", icon: "account_balance_wallet", label: "Wallet" },
-    { to: "/dashboard/settings", icon: "settings", label: "Settings" },
+    { to: "/admin/dashboard", icon: "dashboard", label: "Dashboard", end: true },
+    { to: "/admin/dashboard/users", icon: "manage_accounts", label: "User Management" },
+    { to: "/admin/dashboard/sessions", icon: "gavel", label: "Sessions & Disputes" },
+    { to: "/admin/dashboard/payouts", icon: "account_balance", label: "Financials" },
+    { to: "/admin/dashboard/settings", icon: "settings_applications", label: "System Config" },
 ];
 
-export default function DashboardLayout() {
+export default function AdminDashboardLayout() {
     const [collapsed, setCollapsed] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
     const navigate = useNavigate();
@@ -27,19 +25,18 @@ export default function DashboardLayout() {
     /* shared link classes */
     const linkClasses = ({ isActive }) =>
         `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group ${isActive
-            ? "bg-blue-50 text-primary font-semibold"
+            ? "bg-purple-50 text-purple-700 font-semibold"
             : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
         }`;
 
-    /* sidebar content (reused for desktop & mobile drawer) */
     const SidebarContent = ({ isMobile = false }) => (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full bg-white border-r border-gray-100">
             {/* Logo */}
             <div className="flex items-center gap-2.5 px-4 h-16 flex-shrink-0 border-b border-gray-100">
-                <img src="/icon.png" alt="PeerPal" className="h-8 w-auto flex-shrink-0" />
+                <img src="/icon.png" alt="PeerPal Admin" className="h-8 w-auto flex-shrink-0" />
                 {(!collapsed || isMobile) && (
                     <span className="text-lg font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent whitespace-nowrap">
-                        PeerPal
+                        PeerPal Admin
                     </span>
                 )}
             </div>
@@ -66,23 +63,21 @@ export default function DashboardLayout() {
 
             {/* Bottom: user + logout */}
             <div className="flex-shrink-0 border-t border-gray-100 p-3 space-y-2">
-                {/* User */}
                 <div className="flex items-center gap-3 px-3 py-2">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                        S
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-700 to-indigo-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                        A
                     </div>
                     {(!collapsed || isMobile) && (
                         <div className="min-w-0">
                             <p className="text-sm font-semibold text-gray-900 truncate">
-                                Student
+                                Admin User
                             </p>
                             <p className="text-xs text-gray-400 truncate">
-                                student@uni.ac.za
+                                admin@peerpal.com
                             </p>
                         </div>
                     )}
                 </div>
-                {/* Logout */}
                 <button
                     onClick={handleLogout}
                     className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:bg-red-50 hover:text-red-600 transition w-full"
@@ -150,8 +145,8 @@ export default function DashboardLayout() {
                             </span>
                             <input
                                 type="text"
-                                placeholder="Search tutors, subjects…"
-                                className="pl-10 pr-4 py-2 w-72 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition"
+                                placeholder="Search everything..."
+                                className="pl-10 pr-4 py-2 w-72 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-700/20 focus:border-purple-700 focus:bg-white transition"
                             />
                         </div>
                     </div>
@@ -162,20 +157,20 @@ export default function DashboardLayout() {
                             <span className="material-icons-round text-xl">
                                 notifications
                             </span>
-                            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
+                            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white" />
                         </button>
                         {/* Avatar */}
                         <Link
-                            to="/dashboard/settings"
-                            className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white text-sm font-bold"
+                            to="/admin/dashboard/settings"
+                            className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-700 to-indigo-600 flex items-center justify-center text-white text-sm font-bold"
                         >
-                            S
+                            A
                         </Link>
                     </div>
                 </header>
 
                 {/* Page content */}
-                <main className="flex-1 overflow-y-auto scrollbar-hide p-4 sm:p-6">
+                <main className="flex-1 overflow-y-auto scrollbar-hide p-4 sm:p-6 lg:p-8">
                     <Outlet />
                 </main>
             </div>

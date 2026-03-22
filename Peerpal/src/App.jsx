@@ -36,6 +36,14 @@ import Availability from "./pages/tutor/Availability";
 import Students from "./pages/tutor/Students";
 import TutorSettings from "./pages/tutor/TutorSettings";
 
+/* Admin Portal */
+import AdminDashboardLayout from "./layouts/AdminDashboardLayout";
+import AdminDashboardHome from "./pages/admin/AdminDashboardHome";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminSessions from "./pages/admin/AdminSessions";
+import AdminPayouts from "./pages/admin/AdminPayouts";
+import AdminSettings from "./pages/admin/AdminSettings";
+
 function LandingPage() {
   return (
     <div className="min-h-screen">
@@ -85,6 +93,15 @@ function App() {
           <Route path="availability" element={<Availability />} />
           <Route path="students" element={<Students />} />
           <Route path="settings" element={<TutorSettings />} />
+        </Route>
+
+        {/* Admin Dashboard */}
+        <Route path="/admin/dashboard" element={<AdminDashboardLayout />}>
+          <Route index element={<AdminDashboardHome />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="sessions" element={<AdminSessions />} />
+          <Route path="payouts" element={<AdminPayouts />} />
+          <Route path="settings" element={<AdminSettings />} />
         </Route>
       </Routes>
     </BrowserRouter>

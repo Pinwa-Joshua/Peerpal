@@ -1,18 +1,5 @@
-import { useState } from "react";
-
-/* ─── mock tutors ─── */
-const TUTORS = [
-    { id: 1, name: "Zanele D.", initials: "ZD", gradient: "from-yellow-400 to-orange-500", university: "University of Cape Town", subjects: ["Linear Algebra", "Calculus I", "Calculus II"], rating: 4.9, reviews: 42, rate: 120, format: "both", active: "2 hrs ago" },
-    { id: 2, name: "Sipho N.", initials: "SN", gradient: "from-cyan-500 to-blue-600", university: "University of the Witwatersrand", subjects: ["Chemistry 101", "Organic Chemistry"], rating: 4.8, reviews: 35, rate: 100, format: "online", active: "Online now" },
-    { id: 3, name: "Amara L.", initials: "AL", gradient: "from-violet-500 to-purple-600", university: "Stellenbosch University", subjects: ["Statistics 101", "Economics 101"], rating: 4.7, reviews: 28, rate: 90, format: "in-person", active: "1 hr ago" },
-    { id: 4, name: "Thabo M.", initials: "TM", gradient: "from-blue-500 to-indigo-600", university: "University of Pretoria", subjects: ["Calculus II", "Physics I", "Physics II"], rating: 4.9, reviews: 56, rate: 150, format: "both", active: "Online now" },
-    { id: 5, name: "Naledi K.", initials: "NK", gradient: "from-pink-500 to-rose-600", university: "University of KwaZulu-Natal", subjects: ["Biology 101", "Anatomy & Physiology"], rating: 4.6, reviews: 19, rate: 80, format: "in-person", active: "3 hrs ago" },
-    { id: 6, name: "James P.", initials: "JP", gradient: "from-emerald-500 to-teal-600", university: "Rhodes University", subjects: ["Data Structures & Algorithms", "Intro to Programming"], rating: 4.8, reviews: 31, rate: 130, format: "online", active: "Online now" },
-    { id: 7, name: "Fatima R.", initials: "FR", gradient: "from-amber-500 to-red-500", university: "University of Johannesburg", subjects: ["Financial Accounting", "Management Accounting"], rating: 4.5, reviews: 24, rate: 110, format: "both", active: "5 hrs ago" },
-    { id: 8, name: "Lebo S.", initials: "LS", gradient: "from-lime-500 to-green-600", university: "Nelson Mandela University", subjects: ["Psychology 101", "Sociology 101"], rating: 4.7, reviews: 17, rate: 85, format: "online", active: "30 min ago" },
-    { id: 9, name: "Daniel V.", initials: "DV", gradient: "from-sky-500 to-indigo-500", university: "North-West University", subjects: ["Web Development", "Database Systems"], rating: 4.9, reviews: 48, rate: 140, format: "both", active: "Online now" },
-    { id: 10, name: "Precious M.", initials: "PM", gradient: "from-fuchsia-500 to-pink-600", university: "University of the Free State", subjects: ["Academic English", "Business Law"], rating: 4.4, reviews: 12, rate: 75, format: "in-person", active: "1 day ago" },
-];
+import { useState, useEffect } from "react";
+import { TutorAPI } from "../../services/api";
 
 const SUBJECTS = [
     "All Subjects",
@@ -27,19 +14,36 @@ const FORMATS = ["All", "Online", "In-Person", "Both"];
 const SORT_OPTIONS = ["Relevance", "Price: Low → High", "Price: High → Low", "Rating"];
 
 export default function BrowseTutors() {
+    const [tutors, setTutors] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [subject, setSubject] = useState("All Subjects");
     const [format, setFormat] = useState("All");
     const [sort, setSort] = useState("Relevance");
 
-    let filtered = TUTORS.filter((t) => {
+    useEffect(() => {
+        const fetchTutors = async () => {
+            setLoading(true);
+            try {
+                const data = await TutorAPI.getAll();
+                setTutors(data);
+            } catch (err) {
+                console.error("Failed to load tutors", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchTutors();
+    }, []);
+
+    let filtered = tutors.filter((t) => {
         const matchSearch =
             search === "" ||
             t.name.toLowerCase().includes(search.toLowerCase()) ||
-            t.subjects.some((s) => s.toLowerCase().includes(search.toLowerCase())) ||
-            t.university.toLowerCase().includes(search.toLowerCase());
+            t.subjects?.some((s) => s.toLowerCase().includes(search.toLowerCase())) ||
+            t.university?.toLowerCase().includes(search.toLowerCase());
         const matchSubject =
-            subject === "All Subjects" || t.subjects.includes(subject);
+            subject === "All Subjects" || t.subjects?.includes(subject);
         const matchFormat =
             format === "All" || t.format === format.toLowerCase() || t.format === "both";
         return matchSearch && matchSubject && matchFormat;
@@ -191,7 +195,7 @@ export default function BrowseTutors() {
                                     {tutor.format}
                                 </span>
                                 <span className="text-gray-900 font-bold">
-                                    R{tutor.rate}
+                                    ₦{tutor.rate}
                                     <span className="text-gray-400 font-medium">
                                         /hr
                                     </span>

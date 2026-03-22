@@ -1,0 +1,12 @@
+export default function AdminPayouts() {
+    return (
+        <div className="max-w-7xl mx-auto space-y-6">
+            <h1 className="text-2xl font-bold text-slate-900">Financials & Payouts</h1>
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-8 text-center">
+                <span className="material-icons-round text-slate-300 text-5xl mb-3 block">account_balance</span>
+                <h3 className="text-lg font-medium text-slate-900">Treasury Management</h3>
+                <p className="text-slate-500 mt-2 max-w-sm mx-auto">Manage platform fees, process tutor withdrawals, and execute student refunds.</p>
+            </div>
+        </div>
+    );
+}

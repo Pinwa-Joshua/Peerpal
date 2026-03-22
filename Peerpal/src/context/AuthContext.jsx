@@ -25,9 +25,9 @@ export const AuthProvider = ({ children }) => {
         initAuth();
     }, []);
 
-    const login = async (email, password) => {
+    const login = async (email, password, role) => {
         // Backend returns { access_token: "..." }
-        const response = await AuthAPI.login({ email, password });
+        const response = await AuthAPI.login({ email, password, role });
         localStorage.setItem('access_token', response.access_token);
 
         // Fetch user details immediately after login

@@ -95,7 +95,7 @@ export default function Availability() {
                 </div>
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-soft p-4 text-center">
                     <p className="text-3xl font-display font-extrabold text-tutor">
-                        R{rate}
+                        ₦{rate}
                     </p>
                     <p className="text-xs text-gray-400 font-semibold uppercase mt-1">
                         Hourly Rate
@@ -244,7 +244,7 @@ export default function Availability() {
                                 className="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 text-lg font-display font-bold text-gray-900 focus:border-tutor focus:ring-2 focus:ring-tutor/20 outline-none transition"
                             />
                         </div>
-                        <p className="text-xs text-gray-400 mt-2">Min R50 – Max R500</p>
+                        <p className="text-xs text-gray-400 mt-2">Min ₦50 – Max ₦500</p>
                     </div>
 
                     {/* Blocked dates */}

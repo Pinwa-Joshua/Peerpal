@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { NavLink, Outlet, Link, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 /* ─── sidebar nav items ─── */
 const NAV_ITEMS = [
@@ -17,8 +18,10 @@ export default function TutorDashboardLayout() {
     const [collapsed, setCollapsed] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
     const navigate = useNavigate();
+    const { logout } = useAuth();
 
     const handleLogout = () => {
+        logout();
         navigate("/");
     };
 

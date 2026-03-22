@@ -25,8 +25,11 @@ export default function Navbar() {
                         <a href="#testimonials" className="text-gray-600 hover:text-primary font-medium transition">
                             Testimonials
                         </a>
-                        <Link to="/login" className="text-primary font-semibold hover:underline">
-                            Log in
+                        <Link
+                            to="/get-started"
+                            className="bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-full font-semibold transition shadow-lg shadow-primary/20"
+                        >
+                            Log In
                         </Link>
                         <Link
                             to="/get-started"
