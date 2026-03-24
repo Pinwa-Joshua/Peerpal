@@ -35,7 +35,11 @@ class User(db.Model):
     received_feedbacks = db.relationship('Feedback', foreign_keys='Feedback.to_user_id', backref='to_user')
     sent_messages = db.relationship('Message', foreign_keys='Message.sender_id', backref='sender')
     received_messages = db.relationship('Message', foreign_keys='Message.receiver_id', backref='receiver')
-    subjects = db.relationship("Subject", secondary=user_subject, backref="users")
+    subjects = db.relationship(
+    'Subject',
+    secondary=user_subject,  
+    back_populates='users'
+)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -88,7 +92,11 @@ class Subject(db.Model):
     __tablename__ = "subjects"
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128), nullable=False, unique=True)
-    users = db.relationship("User", secondary=user_subject, backref="subjects")
+    users = db.relationship(
+    'User',
+    secondary=user_subject,  # <--- same table
+    back_populates='subjects'
+)
    
 # SESSION 
 class Session(db.Model):

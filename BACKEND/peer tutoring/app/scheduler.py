@@ -1,36 +1,21 @@
 from apscheduler.schedulers.background import BackgroundScheduler
-from datetime import datetime, timedelta
-from app.models import Session, Notification
-from app.database import db
+from datetime import datetime
+from .models import Session
 
-def send_session_reminders():
-    # Get current time
-    now = datetime.utcnow()
-    # Look for sessions starting in the next 1 hour
-    upcoming_sessions = Session.query.filter(
-        Session.session_date >= now,
-        Session.session_date <= now + timedelta(hours=1),
-        Session.status == "accepted"  # Only accepted sessions
-    ).all()
+scheduler = BackgroundScheduler()
 
-    for session in upcoming_sessions:
-        # Notify tutor
-        notif_tutor = Notification(
-            user_id=session.tutor_id,
-            message=f"Reminder: You have a session with {session.tutee.username} at {session.session_date}"
-        )
-        # Notify tutee
-        notif_tutee = Notification(
-            user_id=session.tutee_id,
-            message=f"Reminder: You have a session with {session.tutor.username} at {session.session_date}"
-        )
-        db.session.add(notif_tutor)
-        db.session.add(notif_tutee)
+def send_session_reminders(app):
+    # Wrap DB access in app context
+    with app.app_context():
+        upcoming_sessions = Session.query.filter(
+            Session.session_date > datetime.utcnow()
+        ).all()
+        for session in upcoming_sessions:
+            print(f"Reminder for session {session.id}")
 
-    db.session.commit()
 
-def start_scheduler():
-    scheduler = BackgroundScheduler()
-    # Run every 15 minutes
-    scheduler.add_job(send_session_reminders, 'interval', minutes=15)
+def start_scheduler(app):
+    # Schedule job every 15 minutes
+    scheduler.add_job(lambda: send_session_reminders(app), 'interval', minutes=15)
     scheduler.start()
+    print("Scheduler started...")

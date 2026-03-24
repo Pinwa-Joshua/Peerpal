@@ -1,76 +1,70 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..database import db
-from ..models import Tutor, User
+from ..models import User, Tutor
 
 tutors_bp = Blueprint("tutors", __name__)
 
-@tutors_bp.route("/")
-def tutors_home():
-    return {"message": "Tutors route working"}
+# GET ALL TUTORS
+@tutors_bp.route("/", methods=["GET"])
+def get_all_tutors():
+    tutors = Tutor.query.join(User).all()
+    results = []
+    for t in tutors:
+        results.append({
+            "id": t.user.id,
+            "username": t.user.username,
+            "email": t.user.email,
+            "profile_picture": t.user.profile_picture,
+            "subjects": t.subjects,
+            "experience_level": t.experience_level,
+            "average_rating": t.user.average_rating
+        })
+    return jsonify(results)
 
-@tutors_bp.route("/profile", methods=["POST"])
+
+# UPDATE TUTOR PROFILE (for logged-in tutor)
+@tutors_bp.route("/update", methods=["PUT"])
 @jwt_required()
-def create_profile():
-    """
-    Create or update a tutor profile for the current user.
-    Users can have multiple subjects by comma separation.
-    """
+def update_tutor():
     user_id = get_jwt_identity()
-    data = request.json
-
-    # Ensure subjects is a string
-    subjects = data.get("subjects")
-    if not subjects or not isinstance(subjects, str):
-        return jsonify({"error": "Subjects must be a non-empty string"}), 400
-
-    experience_level = data.get("experience_level", "beginner")
-
-    # Check if user already has a tutor profile
     tutor = Tutor.query.filter_by(user_id=user_id).first()
-    if tutor:
-        # Update existing profile
-        tutor.subjects = subjects
-        tutor.experience_level = experience_level
-    else:
-        # Create new profile
-        tutor = Tutor(
-            user_id=user_id,
-            subjects=subjects,
-            experience_level=experience_level
-        )
-        db.session.add(tutor)
+    if not tutor:
+        return jsonify({"error": "Tutor profile not found"}), 404
+
+    data = request.get_json()
+    if data.get("subjects"):
+        tutor.subjects = data["subjects"]
+    if data.get("experience_level"):
+        tutor.experience_level = data["experience_level"]
 
     db.session.commit()
-    return jsonify({"message": "Tutor profile created/updated"}), 201
+    return jsonify({"message": "Tutor profile updated"}), 200
 
 
-@tutors_bp.route("/list", methods=["GET"])
-def list_tutors():
-    """
-    List all tutors, optionally filtered by subject.
-    Users can be tutors in some subjects and tutees in others.
-    """
-    subject = request.args.get("subject", "").strip()
+# SEARCH TUTORS (by name or subject)
+@tutors_bp.route("/search", methods=["GET"])
+def search_tutors():
+    name = request.args.get("name")
+    subject = request.args.get("subject")
+    
+    query = Tutor.query.join(User)
 
-    query = Tutor.query
+    if name:
+        query = query.filter(User.username.ilike(f"%{name}%"))
     if subject:
-        # Case-insensitive match
         query = query.filter(Tutor.subjects.ilike(f"%{subject}%"))
 
     tutors = query.all()
-
-    result = []
+    results = []
     for t in tutors:
-        # Defensive: t.user might not exist if the relationship is broken
-        user = t.user
-        result.append({
-            "tutor_id": t.user_id,
-            "username": user.username if user else "",
+        results.append({
+            "id": t.user.id,
+            "username": t.user.username,
+            "email": t.user.email,
+            "profile_picture": t.user.profile_picture,
             "subjects": t.subjects,
             "experience_level": t.experience_level,
-            "availability": t.availability,
-            "rating": user.average_rating if user else 0
+            "average_rating": t.user.average_rating
         })
-
-    return jsonify(result)
+    return jsonify(results)
