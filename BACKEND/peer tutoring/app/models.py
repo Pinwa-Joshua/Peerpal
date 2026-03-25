@@ -60,14 +60,26 @@ class Tutor(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, unique=True)
+    subjects = db.Column(db.String(255))
     experience_level = db.Column(db.String(50))
-    availability = db.Column(db.String(255))
+    # availability removed - now using TimeSlot relationship
     active = db.Column(db.Boolean, default=True)
     verified = db.Column(db.Boolean, default=False)
     tutor_style = db.Column(db.String(50))
+    
+    # Relationship to time slots
+    time_slots = db.relationship("TimeSlot", backref="tutor", lazy=True, cascade="all, delete-orphan")
 
 
-# MATCH (3-MONTH PAIRING) 
+# TIME SLOT
+class TimeSlot(db.Model):
+    __tablename__ = "time_slots"
+
+    id = db.Column(db.Integer, primary_key=True)
+    tutor_id = db.Column(db.Integer, db.ForeignKey("tutor_profiles.id"), nullable=False)
+    day_of_week = db.Column(db.String(10), nullable=False)  # 'Monday', 'Tuesday', etc.
+    time_block = db.Column(db.String(20), nullable=False)  # 'Morning', 'Afternoon', 'Evening'
+    is_available = db.Column(db.Boolean, default=True) 
 class Match(db.Model):
     __tablename__ = "matches"
 
@@ -189,6 +201,19 @@ class Notification(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     message = db.Column(db.String(255))
     is_read = db.Column(db.Boolean, default=False)
+
+
+# PASSWORD RESET TOKEN
+class PasswordResetToken(db.Model):
+    __tablename__ = "password_reset_tokens"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    token = db.Column(db.String(120), nullable=False, unique=True)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used = db.Column(db.Boolean, default=False)
+    
+    user = db.relationship("User", backref="reset_tokens")
 
 
 from .database import db

@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..database import db
-from ..models import User, Tutor
+from ..models import User, Tutor, TimeSlot
 
 tutors_bp = Blueprint("tutors", __name__)
 
@@ -68,3 +68,53 @@ def search_tutors():
             "average_rating": t.user.average_rating
         })
     return jsonify(results)
+
+
+# GET TUTOR AVAILABILITY (time slots)
+@tutors_bp.route("/availability", methods=["GET"])
+@jwt_required()
+def get_availability():
+    user_id = get_jwt_identity()
+    tutor = Tutor.query.filter_by(user_id=user_id).first()
+    if not tutor:
+        return jsonify({"error": "Tutor profile not found"}), 404
+    
+    time_slots = TimeSlot.query.filter_by(tutor_id=tutor.id).all()
+    availability = {}
+    for slot in time_slots:
+        if slot.day_of_week not in availability:
+            availability[slot.day_of_week] = []
+        if slot.is_available:
+            availability[slot.day_of_week].append(slot.time_block)
+    
+    return jsonify(availability), 200
+
+
+# UPDATE TUTOR AVAILABILITY (time slots)
+@tutors_bp.route("/availability", methods=["PUT"])
+@jwt_required()
+def update_availability():
+    user_id = get_jwt_identity()
+    tutor = Tutor.query.filter_by(user_id=user_id).first()
+    if not tutor:
+        return jsonify({"error": "Tutor profile not found"}), 404
+    
+    data = request.get_json()
+    # data should be like: {"Monday": ["Morning", "Afternoon"], "Tuesday": [], ...}
+    
+    # Clear existing time slots
+    TimeSlot.query.filter_by(tutor_id=tutor.id).delete()
+    
+    # Add new time slots
+    for day, blocks in data.items():
+        for block in blocks:
+            time_slot = TimeSlot(
+                tutor_id=tutor.id,
+                day_of_week=day,
+                time_block=block,
+                is_available=True
+            )
+            db.session.add(time_slot)
+    
+    db.session.commit()
+    return jsonify({"message": "Availability updated successfully"}), 200
