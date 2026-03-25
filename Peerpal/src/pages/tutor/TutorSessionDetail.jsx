@@ -1,440 +1,612 @@
-import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
-
-/* ─── extended mock data ─── */
-const SESSIONS = [
-    {
-        id: 1, student: "Lerato Mokoena", initials: "LM", gradient: "from-pink-500 to-rose-600",
-        university: "University of Cape Town", year: "2nd Year", subject: "Calculus II",
-        topic: "Integration by Parts & Partial Fractions", date: "Today", time: "3:00 PM – 4:00 PM",
-        duration: "1 hour", format: "online", status: "confirmed", tab: "upcoming",
-        meetingLink: "https://meet.google.com/abc-defg-hij", rate: 120, paid: true,
-        notes: "Covering integration by parts, working through past exam questions on partial fractions.",
-        studentNote: "I'm struggling with choosing u and dv. Please go slowly through the examples.",
-    },
-    {
-        id: 2, student: "David Ndlovu", initials: "DN", gradient: "from-blue-500 to-indigo-600",
-        university: "University of the Witwatersrand", year: "1st Year", subject: "Physics I",
-        topic: "Newton's Laws & Free Body Diagrams", date: "Tomorrow", time: "10:00 AM – 11:30 AM",
-        duration: "1.5 hours", format: "in-person", status: "confirmed", tab: "upcoming",
-        location: "Science Library, Room 204", rate: 100, paid: false,
-        notes: "First session – assess current level and build a semester study plan.",
-        studentNote: "I need help drawing free body diagrams for pulley systems.",
-    },
-    {
-        id: 3, student: "Aisha Tshikeli", initials: "AT", gradient: "from-violet-500 to-purple-600",
-        university: "University of Cape Town", year: "2nd Year", subject: "Linear Algebra",
-        topic: "Eigenvalues & Diagonalisation", date: "Fri, 14 Mar", time: "2:00 PM – 3:00 PM",
-        duration: "1 hour", format: "online", status: "confirmed", tab: "upcoming",
-        meetingLink: "https://meet.google.com/xyz-uvwx-rst", rate: 150, paid: true,
-        notes: "Eigenvectors, diagonalisation, and applications.",
-        studentNote: "Can we practice with 3x3 matrices?",
-    },
-    {
-        id: 4, student: "Sipho Ndaba", initials: "SN", gradient: "from-cyan-500 to-blue-600",
-        university: "University of KwaZulu-Natal", year: "1st Year", subject: "Chemistry 101",
-        topic: "Stoichiometry & Molar Calculations", date: "Mon, 3 Mar", time: "11:00 AM – 12:00 PM",
-        duration: "1 hour", format: "online", status: "completed", tab: "completed",
-        rate: 90, paid: true, studentRating: 5,
-        studentReview: "Thabo explained stoichiometry so clearly — best session ever!",
-        notes: "Worked through balancing equations and limiting reagent problems.",
-    },
-    {
-        id: 5, student: "Amara Langa", initials: "AL", gradient: "from-emerald-500 to-teal-600",
-        university: "University of Cape Town", year: "3rd Year", subject: "Statistics 101",
-        topic: "Hypothesis Testing & P-values", date: "Sat, 1 Mar", time: "9:00 AM – 10:30 AM",
-        duration: "1.5 hours", format: "in-person", status: "completed", tab: "completed",
-        location: "Science Library, Room 101", rate: 130, paid: true, studentRating: 4,
-        studentReview: "Good session, covered a lot of ground quickly.",
-        notes: "Z-tests, t-tests and interpreting p-values.",
-    },
-    {
-        id: 6, student: "Thando Khumalo", initials: "TK", gradient: "from-yellow-400 to-orange-500",
-        university: "University of Cape Town", year: "2nd Year", subject: "Data Structures",
-        topic: "Binary Trees & BFS/DFS", date: "Thu, 27 Feb", time: "4:00 PM – 5:00 PM",
-        duration: "1 hour", format: "online", status: "completed", tab: "completed",
-        rate: 150, paid: true, studentRating: 5,
-        studentReview: "Brilliant tutor! Made tree traversal make sense.",
-        notes: "Implementing BFS & DFS in Python. Laptop session.",
-    },
-    {
-        id: 7, student: "Nomsa Buthelezi", initials: "NB", gradient: "from-amber-500 to-red-500",
-        university: "University of Pretoria", year: "2nd Year", subject: "Linear Algebra",
-        topic: "Eigenvalues & Eigenvectors", date: "Tue, 25 Feb", time: "1:00 PM – 2:00 PM",
-        duration: "1 hour", format: "in-person", status: "cancelled", tab: "cancelled",
-        cancelReason: "Student had a schedule conflict.", rate: 110, paid: false,
-        location: "Math Building, Room M23",
-        notes: "Was planned to cover diagonalisation fundamentals.",
-    },
-];
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { useFeedback } from "../../context/FeedbackContext";
+import {
+  FeedbackStatusPill,
+  StarRatingInput,
+  StarsDisplay,
+} from "../../components/feedback/FeedbackWidgets";
 
 const STATUS_CFG = {
-    confirmed: { bg: "bg-green-50", text: "text-green-700", dot: "bg-green-500", label: "Confirmed" },
-    completed: { bg: "bg-teal-50", text: "text-tutor", dot: "bg-tutor", label: "Completed" },
-    cancelled: { bg: "bg-red-50", text: "text-red-600", dot: "bg-red-500", label: "Cancelled" },
+  confirmed: { bg: "bg-green-50", text: "text-green-700", dot: "bg-green-500", label: "Confirmed" },
+  completed: { bg: "bg-teal-50", text: "text-tutor", dot: "bg-tutor", label: "Completed" },
+  cancelled: { bg: "bg-red-50", text: "text-red-600", dot: "bg-red-500", label: "Cancelled" },
 };
 
+const reportOptions = [
+  { value: "", label: "No issue to report" },
+  { value: "no-show", label: "Student no-show" },
+  { value: "poor-behavior", label: "Poor behavior" },
+  { value: "late-payment", label: "Late payment concern" },
+];
+
 export default function TutorSessionDetail() {
-    const { id } = useParams();
-    const navigate = useNavigate();
-    const session = SESSIONS.find((s) => s.id === Number(id));
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { getSessionByRole, submitFeedback, studentProfile } = useFeedback();
+  const session = getSessionByRole("tutor", Number(id));
 
-    const [tutorNotes, setTutorNotes] = useState(session?.notes || "");
-    const [showCancel, setShowCancel] = useState(false);
+  const [notes, setNotes] = useState(session?.notes || "");
+  const [form, setForm] = useState({
+    ratings: {
+      engagement: 0,
+      preparedness: 0,
+      participation: 0,
+    },
+    comment: "",
+    topicsCovered: "",
+    strengths: "",
+    weaknesses: "",
+    recommendation: "",
+    anonymous: false,
+    flagType: "",
+    flagDetails: "",
+  });
+  const [status, setStatus] = useState({ type: "", message: "" });
+  const [showCancel, setShowCancel] = useState(false);
 
-    if (!session) {
-        return (
-            <div className="max-w-3xl mx-auto py-20 text-center">
-                <span className="material-icons-round text-6xl text-gray-300 mb-4 block">
-                    event_busy
-                </span>
-                <h2 className="text-xl font-display font-bold text-gray-900 mb-2">
-                    Session not found
-                </h2>
-                <p className="text-gray-500 mb-6">
-                    This session may have been removed or doesn't exist.
-                </p>
-                <Link
-                    to="/tutor/dashboard/sessions"
-                    className="inline-flex items-center gap-2 bg-tutor text-white font-semibold px-6 py-3 rounded-full shadow-lg shadow-tutor/20 hover:bg-teal-700 transition"
-                >
-                    <span className="material-icons-round text-lg">arrow_back</span>
-                    Back to Sessions
-                </Link>
-            </div>
-        );
-    }
-
-    const st = STATUS_CFG[session.status];
-    const isUpcoming = session.tab === "upcoming";
-    const isCompleted = session.tab === "completed";
-    const isCancelled = session.tab === "cancelled";
-
+  if (!session) {
     return (
-        <div className="max-w-4xl mx-auto space-y-6">
-            {/* Back link */}
-            <button
-                onClick={() => navigate("/tutor/dashboard/sessions")}
-                className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-tutor font-semibold transition group"
-            >
-                <span className="material-icons-round text-lg group-hover:-translate-x-0.5 transition-transform">
-                    arrow_back
-                </span>
-                Back to My Sessions
-            </button>
-
-            {/* Header card */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-soft overflow-hidden">
-                {/* Status banner */}
-                <div className={`${st.bg} px-6 py-3 flex items-center gap-2`}>
-                    <span className={`w-2 h-2 rounded-full ${st.dot}`} />
-                    <span className={`text-sm font-semibold ${st.text}`}>
-                        {st.label}
-                    </span>
-                    {isCancelled && session.cancelReason && (
-                        <span className="text-xs text-gray-500 ml-1">
-                            — {session.cancelReason}
-                        </span>
-                    )}
-                </div>
-
-                <div className="p-6 sm:p-8">
-                    <div className="flex flex-col sm:flex-row gap-6">
-                        {/* Student avatar */}
-                        <div
-                            className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${session.gradient} flex items-center justify-center text-white text-2xl font-bold flex-shrink-0 shadow-lg`}
-                        >
-                            {session.initials}
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                            <h1 className="text-xl sm:text-2xl font-display font-extrabold text-gray-900">
-                                {session.subject}
-                            </h1>
-                            <p className="text-gray-500 mt-0.5">{session.topic}</p>
-
-                            <div className="flex flex-wrap items-center gap-3 mt-3">
-                                <span className="text-sm font-semibold text-gray-900">
-                                    {session.student}
-                                </span>
-                                <span className="text-xs text-gray-400">•</span>
-                                <span className="text-sm text-gray-500">
-                                    {session.university}
-                                </span>
-                                <span className="text-xs text-gray-400">•</span>
-                                <span className="text-sm text-gray-500">
-                                    {session.year}
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Quick actions */}
-                        <div className="flex sm:flex-col gap-2 flex-shrink-0">
-                            <Link
-                                to="/tutor/dashboard/messages"
-                                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-gray-200 text-sm font-semibold text-gray-700 hover:border-tutor hover:text-tutor transition bg-white"
-                            >
-                                <span className="material-icons-round text-lg">chat</span>
-                                Message
-                            </Link>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Details grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Date & Time */}
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-soft p-5 flex items-start gap-4">
-                    <div className="w-11 h-11 rounded-xl bg-teal-50 flex items-center justify-center flex-shrink-0">
-                        <span className="material-icons-round text-tutor">
-                            calendar_today
-                        </span>
-                    </div>
-                    <div>
-                        <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">
-                            Date & Time
-                        </p>
-                        <p className="font-semibold text-gray-900 mt-0.5">
-                            {session.date}
-                        </p>
-                        <p className="text-sm text-gray-500">{session.time}</p>
-                    </div>
-                </div>
-
-                {/* Duration */}
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-soft p-5 flex items-start gap-4">
-                    <div className="w-11 h-11 rounded-xl bg-purple-50 flex items-center justify-center flex-shrink-0">
-                        <span className="material-icons-round text-purple-600">
-                            timer
-                        </span>
-                    </div>
-                    <div>
-                        <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">
-                            Duration
-                        </p>
-                        <p className="font-semibold text-gray-900 mt-0.5">
-                            {session.duration}
-                        </p>
-                    </div>
-                </div>
-
-                {/* Format & Location */}
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-soft p-5 flex items-start gap-4">
-                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${session.format === "online" ? "bg-green-50" : "bg-orange-50"}`}>
-                        <span className={`material-icons-round ${session.format === "online" ? "text-green-600" : "text-orange-600"}`}>
-                            {session.format === "online" ? "videocam" : "location_on"}
-                        </span>
-                    </div>
-                    <div>
-                        <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">
-                            Format
-                        </p>
-                        <p className="font-semibold text-gray-900 mt-0.5 capitalize">
-                            {session.format}
-                        </p>
-                        {session.meetingLink && (
-                            <a
-                                href={session.meetingLink}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-sm text-tutor hover:underline flex items-center gap-1 mt-0.5"
-                            >
-                                Meeting link
-                                <span className="material-icons-round text-sm">
-                                    open_in_new
-                                </span>
-                            </a>
-                        )}
-                        {session.location && (
-                            <p className="text-sm text-gray-500 mt-0.5">
-                                {session.location}
-                            </p>
-                        )}
-                    </div>
-                </div>
-
-                {/* Earnings */}
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-soft p-5 flex items-start gap-4">
-                    <div className="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0">
-                        <span className="material-icons-round text-emerald-600">
-                            payments
-                        </span>
-                    </div>
-                    <div>
-                        <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">
-                            Earnings
-                        </p>
-                        <p className="font-semibold text-gray-900 mt-0.5">
-                            ₦{session.rate}
-                        </p>
-                        <p className={`text-sm font-semibold mt-0.5 ${session.paid ? "text-green-600" : "text-yellow-600"}`}>
-                            {session.paid ? "Paid" : "Pending payment"}
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Student's note */}
-            {session.studentNote && (
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-soft p-6">
-                    <div className="flex items-center gap-2 mb-3">
-                        <span className="material-icons-round text-blue-500 text-xl">
-                            chat_bubble
-                        </span>
-                        <h3 className="font-display font-bold text-gray-900">
-                            Student's Note
-                        </h3>
-                    </div>
-                    <p className="text-gray-600 text-sm leading-relaxed">
-                        "{session.studentNote}"
-                    </p>
-                </div>
-            )}
-
-            {/* Tutor session notes (editable for upcoming) */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-soft p-6">
-                <div className="flex items-center gap-2 mb-3">
-                    <span className="material-icons-round text-tutor text-xl">
-                        description
-                    </span>
-                    <h3 className="font-display font-bold text-gray-900">
-                        Your Session Notes
-                    </h3>
-                </div>
-                {isUpcoming ? (
-                    <>
-                        <textarea
-                            rows={3}
-                            value={tutorNotes}
-                            onChange={(e) => setTutorNotes(e.target.value)}
-                            placeholder="Add prep notes for this session…"
-                            className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-tutor/30 focus:border-tutor transition resize-none text-sm"
-                        />
-                        <button className="mt-2 text-sm font-semibold text-tutor hover:underline">
-                            Save Notes
-                        </button>
-                    </>
-                ) : (
-                    <p className="text-gray-600 text-sm leading-relaxed">
-                        {session.notes}
-                    </p>
-                )}
-            </div>
-
-            {/* Student review (completed) */}
-            {isCompleted && session.studentRating && (
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-soft p-6">
-                    <div className="flex items-center gap-2 mb-3">
-                        <span className="material-icons-round text-accent text-xl">
-                            rate_review
-                        </span>
-                        <h3 className="font-display font-bold text-gray-900">
-                            Student's Review
-                        </h3>
-                    </div>
-                    <div className="flex items-center gap-1 mb-2">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                            <span
-                                key={i}
-                                className={`material-icons-round text-lg ${i < session.studentRating
-                                        ? "text-accent"
-                                        : "text-gray-300"
-                                    }`}
-                            >
-                                star
-                            </span>
-                        ))}
-                        <span className="text-sm text-gray-500 ml-1">
-                            {session.studentRating}/5
-                        </span>
-                    </div>
-                    <p className="text-gray-600 text-sm leading-relaxed">
-                        "{session.studentReview}"
-                    </p>
-                </div>
-            )}
-
-            {/* Action bar */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-soft p-5 flex flex-col sm:flex-row items-center gap-3">
-                {isUpcoming && (
-                    <>
-                        {session.format === "online" && session.meetingLink && (
-                            <a
-                                href={session.meetingLink}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-tutor hover:bg-teal-700 text-white font-semibold px-8 py-3 rounded-full shadow-lg shadow-tutor/20 transition-all hover:-translate-y-0.5"
-                            >
-                                <span className="material-icons-round text-lg">
-                                    videocam
-                                </span>
-                                Start Session
-                            </a>
-                        )}
-                        <Link
-                            to="/tutor/dashboard/messages"
-                            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 border-2 border-tutor text-tutor font-semibold px-8 py-3 rounded-full hover:bg-teal-50 transition"
-                        >
-                            <span className="material-icons-round text-lg">
-                                chat
-                            </span>
-                            Message Student
-                        </Link>
-                        <div className="flex-1" />
-                        {!showCancel ? (
-                            <button
-                                onClick={() => setShowCancel(true)}
-                                className="w-full sm:w-auto text-sm text-red-500 hover:text-red-700 font-semibold px-6 py-3 rounded-full hover:bg-red-50 transition"
-                            >
-                                Cancel Session
-                            </button>
-                        ) : (
-                            <div className="flex items-center gap-2 w-full sm:w-auto">
-                                <span className="text-sm text-red-600 font-semibold">
-                                    Cancel this session?
-                                </span>
-                                <button
-                                    onClick={() => navigate("/tutor/dashboard/sessions")}
-                                    className="bg-red-500 hover:bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded-full transition"
-                                >
-                                    Yes, cancel
-                                </button>
-                                <button
-                                    onClick={() => setShowCancel(false)}
-                                    className="text-sm text-gray-500 hover:text-gray-700 font-semibold px-4 py-2 rounded-full hover:bg-gray-100 transition"
-                                >
-                                    Keep it
-                                </button>
-                            </div>
-                        )}
-                    </>
-                )}
-
-                {isCompleted && (
-                    <Link
-                        to="/tutor/dashboard/messages"
-                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-tutor hover:bg-teal-700 text-white font-semibold px-8 py-3 rounded-full shadow-lg shadow-tutor/20 transition-all hover:-translate-y-0.5"
-                    >
-                        <span className="material-icons-round text-lg">
-                            chat
-                        </span>
-                        Message Student
-                    </Link>
-                )}
-
-                {isCancelled && (
-                    <Link
-                        to="/tutor/dashboard/requests"
-                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-tutor hover:bg-teal-700 text-white font-semibold px-8 py-3 rounded-full shadow-lg shadow-tutor/20 transition-all hover:-translate-y-0.5"
-                    >
-                        <span className="material-icons-round text-lg">
-                            inbox
-                        </span>
-                        View Requests
-                    </Link>
-                )}
-            </div>
-        </div>
+      <div className="max-w-3xl mx-auto py-20 text-center">
+        <span className="material-icons-round mb-4 block text-6xl text-gray-300">event_busy</span>
+        <h2 className="mb-2 text-xl font-display font-bold text-gray-900">Session not found</h2>
+        <p className="mb-6 text-gray-500">This session may have been removed or does not exist.</p>
+        <Link
+          to="/tutor/dashboard/sessions"
+          className="inline-flex items-center gap-2 rounded-full bg-tutor px-6 py-3 font-semibold text-white shadow-lg shadow-tutor/20 transition hover:bg-teal-700"
+        >
+          <span className="material-icons-round text-lg">arrow_back</span>
+          Back to Sessions
+        </Link>
+      </div>
     );
+  }
+
+  const st = STATUS_CFG[session.status];
+  const isUpcoming = session.tab === "upcoming";
+  const isCompleted = session.tab === "completed";
+  const isCancelled = session.tab === "cancelled";
+  const studentFeedback = session.feedback.student;
+  const tutorFeedback = session.feedback.tutor;
+  const canSubmit = Object.values(form.ratings).every((value) => value > 0);
+
+  const handleSubmit = () => {
+    try {
+      submitFeedback({
+        sessionId: session.id,
+        role: "tutor",
+        payload: {
+          ratings: form.ratings,
+          comment: form.comment,
+          anonymous: form.anonymous,
+          recommendation: form.recommendation,
+          sessionNotes: {
+            topicsCovered: form.topicsCovered,
+            strengths: form.strengths,
+            weaknesses: form.weaknesses,
+          },
+          flag: form.flagType
+            ? { type: form.flagType, details: form.flagDetails }
+            : null,
+        },
+      });
+      setStatus({ type: "success", message: "Tutor feedback submitted and locked for this session." });
+    } catch (error) {
+      setStatus({ type: "error", message: error.message });
+    }
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-6">
+      <button
+        onClick={() => navigate("/tutor/dashboard/sessions")}
+        className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-500 transition hover:text-tutor group"
+      >
+        <span className="material-icons-round text-lg transition-transform group-hover:-translate-x-0.5">
+          arrow_back
+        </span>
+        Back to My Sessions
+      </button>
+
+      <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-soft">
+        <div className={`${st.bg} flex items-center gap-2 px-6 py-3`}>
+          <span className={`h-2 w-2 rounded-full ${st.dot}`} />
+          <span className={`text-sm font-semibold ${st.text}`}>{st.label}</span>
+          {isCancelled && session.cancelReason && (
+            <span className="ml-1 text-xs text-gray-500">{session.cancelReason}</span>
+          )}
+        </div>
+
+        <div className="p-6 sm:p-8">
+          <div className="flex flex-col gap-6 lg:flex-row">
+            <div
+              className={`flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br ${session.gradient} text-2xl font-bold text-white shadow-lg`}
+            >
+              {session.initials}
+            </div>
+            <div className="flex-1">
+              <h1 className="text-2xl font-display font-extrabold text-gray-900">{session.subject}</h1>
+              <p className="mt-1 text-gray-500">{session.topic}</p>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <span className="text-sm font-semibold text-gray-900">{session.student}</span>
+                <span className="text-xs text-gray-400">•</span>
+                <span className="text-sm text-gray-500">{session.university}</span>
+                <span className="text-xs text-gray-400">•</span>
+                <span className="text-sm text-gray-500">{session.year}</span>
+                {session.studentId === studentProfile.id && (
+                  <>
+                    <span className="text-xs text-gray-400">•</span>
+                    <span className="flex items-center gap-1 text-sm text-gray-500">
+                      <span className="font-semibold text-gray-900">{studentProfile.rating}</span>
+                      <StarsDisplay value={studentProfile.rating} size="text-sm" />
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 lg:flex-col">
+              <Link
+                to="/tutor/dashboard/messages"
+                className="inline-flex items-center gap-2 rounded-xl border-2 border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-tutor hover:text-tutor"
+              >
+                <span className="material-icons-round text-lg">chat</span>
+                Message
+              </Link>
+              <Link
+                to="/tutor/dashboard/feedback"
+                className="inline-flex items-center gap-2 rounded-xl border-2 border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-tutor hover:text-tutor"
+              >
+                <span className="material-icons-round text-lg">insights</span>
+                Feedback desk
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <InfoCard icon="calendar_today" tone="teal" label="Date & Time" value={session.date} helper={session.time} />
+        <InfoCard icon="timer" tone="purple" label="Duration" value={session.duration} />
+        <InfoCard
+          icon={session.format === "online" ? "videocam" : "location_on"}
+          tone={session.format === "online" ? "green" : "orange"}
+          label="Format"
+          value={session.format}
+          helper={session.location || "Meeting link available"}
+        />
+        <InfoCard
+          icon="payments"
+          tone="emerald"
+          label="Earnings"
+          value={`N${session.rate}`}
+          helper={session.paid ? "Paid" : "Pending payment"}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="space-y-6">
+          <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-display font-bold text-gray-900">Two-Way Feedback Status</h2>
+                <p className="text-sm text-gray-500">Both student and tutor feedback remain independent for every completed session.</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <FeedbackStatusPill
+                  submitted={!!tutorFeedback}
+                  label={tutorFeedback ? "Your review sent" : "Your review pending"}
+                />
+                <FeedbackStatusPill
+                  submitted={!!studentFeedback}
+                  label={studentFeedback ? "Student review received" : "Student review pending"}
+                />
+              </div>
+            </div>
+          </section>
+
+          {session.studentNote && (
+            <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="material-icons-round text-blue-500">chat_bubble</span>
+                <h2 className="font-display text-xl font-bold text-gray-900">Student Note</h2>
+              </div>
+              <p className="text-sm leading-relaxed text-gray-600">{session.studentNote}</p>
+            </section>
+          )}
+
+          <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="material-icons-round text-tutor">description</span>
+              <h2 className="font-display text-xl font-bold text-gray-900">Your Session Notes</h2>
+            </div>
+            {isUpcoming ? (
+              <>
+                <textarea
+                  rows={4}
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  placeholder="Add prep notes for this session."
+                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-tutor focus:ring-2 focus:ring-tutor/20"
+                />
+                <button className="mt-3 text-sm font-semibold text-tutor hover:underline">Save Notes</button>
+              </>
+            ) : (
+              <p className="text-sm leading-relaxed text-gray-600">{session.notes}</p>
+            )}
+          </section>
+
+          {isCompleted && studentFeedback && (
+            <FeedbackSummaryCard
+              title="Student Review"
+              accent="primary"
+              entry={studentFeedback}
+              extra={
+                <div className="grid gap-3 md:grid-cols-2">
+                  <ReflectionCard
+                    label="Improved understanding"
+                    value={studentFeedback.reflection?.improvedUnderstanding}
+                  />
+                  <ReflectionCard
+                    label="Needs improvement"
+                    value={studentFeedback.reflection?.needsImprovement}
+                  />
+                </div>
+              }
+            />
+          )}
+
+          {isCompleted && tutorFeedback && (
+            <FeedbackSummaryCard
+              title="Your Submitted Tutor Feedback"
+              accent="tutor"
+              entry={tutorFeedback}
+              extra={
+                <div className="grid gap-3 md:grid-cols-2">
+                  <ReflectionCard label="Topics covered" value={tutorFeedback.sessionNotes?.topicsCovered} />
+                  <ReflectionCard label="Study advice" value={tutorFeedback.recommendation} />
+                  <ReflectionCard label="Strengths" value={tutorFeedback.sessionNotes?.strengths} />
+                  <ReflectionCard label="Weaknesses" value={tutorFeedback.sessionNotes?.weaknesses} />
+                </div>
+              }
+            />
+          )}
+
+          {isCompleted && !tutorFeedback && (
+            <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-display font-bold text-gray-900">Submit Tutor Feedback</h2>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Rate engagement, preparedness, and participation, then store session notes and recommendations.
+                  </p>
+                </div>
+                <label className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-600">
+                  <input
+                    type="checkbox"
+                    checked={form.anonymous}
+                    onChange={(event) =>
+                      setForm((current) => ({ ...current, anonymous: event.target.checked }))
+                    }
+                  />
+                  Anonymous admin-only identity
+                </label>
+              </div>
+
+              <div className="mt-5 grid gap-4 md:grid-cols-3">
+                <StarRatingInput
+                  label="Engagement"
+                  value={form.ratings.engagement}
+                  onChange={(value) =>
+                    setForm((current) => ({
+                      ...current,
+                      ratings: { ...current.ratings, engagement: value },
+                    }))
+                  }
+                  accent="tutor"
+                />
+                <StarRatingInput
+                  label="Preparedness"
+                  value={form.ratings.preparedness}
+                  onChange={(value) =>
+                    setForm((current) => ({
+                      ...current,
+                      ratings: { ...current.ratings, preparedness: value },
+                    }))
+                  }
+                  accent="tutor"
+                />
+                <StarRatingInput
+                  label="Participation"
+                  value={form.ratings.participation}
+                  onChange={(value) =>
+                    setForm((current) => ({
+                      ...current,
+                      ratings: { ...current.ratings, participation: value },
+                    }))
+                  }
+                  accent="tutor"
+                />
+              </div>
+
+              <div className="mt-5 grid gap-4">
+                <Field
+                  as="textarea"
+                  rows={4}
+                  label="Session reflection"
+                  value={form.comment}
+                  onChange={(value) => setForm((current) => ({ ...current, comment: value }))}
+                  placeholder="Summarize how the session went."
+                />
+                <Field
+                  as="textarea"
+                  rows={3}
+                  label="Topics covered"
+                  value={form.topicsCovered}
+                  onChange={(value) => setForm((current) => ({ ...current, topicsCovered: value }))}
+                  placeholder="What did you work through together?"
+                />
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Field
+                    as="textarea"
+                    rows={3}
+                    label="Student strengths"
+                    value={form.strengths}
+                    onChange={(value) => setForm((current) => ({ ...current, strengths: value }))}
+                    placeholder="What went well?"
+                  />
+                  <Field
+                    as="textarea"
+                    rows={3}
+                    label="Student weaknesses"
+                    value={form.weaknesses}
+                    onChange={(value) => setForm((current) => ({ ...current, weaknesses: value }))}
+                    placeholder="What still needs work?"
+                  />
+                </div>
+                <Field
+                  as="textarea"
+                  rows={3}
+                  label="Recommended topics to revise and study advice"
+                  value={form.recommendation}
+                  onChange={(value) => setForm((current) => ({ ...current, recommendation: value }))}
+                  placeholder="Suggested revision and next steps."
+                />
+              </div>
+
+              <div className="mt-5 grid gap-4 md:grid-cols-[0.85fr_1.15fr]">
+                <SelectField
+                  label="Flag or report an issue"
+                  value={form.flagType}
+                  onChange={(value) => setForm((current) => ({ ...current, flagType: value }))}
+                  options={reportOptions}
+                />
+                <Field
+                  as="textarea"
+                  rows={3}
+                  label="Issue details"
+                  value={form.flagDetails}
+                  onChange={(value) => setForm((current) => ({ ...current, flagDetails: value }))}
+                  placeholder="Add context for admins if needed."
+                />
+              </div>
+
+              {status.message && (
+                <div
+                  className={`mt-5 rounded-2xl px-4 py-3 text-sm ${
+                    status.type === "success"
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "bg-rose-50 text-rose-700"
+                  }`}
+                >
+                  {status.message}
+                </div>
+              )}
+
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-gray-500">
+                  Duplicate tutor submissions are blocked once this review is stored.
+                </p>
+                <button
+                  type="button"
+                  disabled={!canSubmit}
+                  onClick={handleSubmit}
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-tutor px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-tutor/20 transition hover:-translate-y-0.5 hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <span className="material-icons-round text-lg">send</span>
+                  Submit tutor feedback
+                </button>
+              </div>
+            </section>
+          )}
+        </div>
+
+        <div className="space-y-6">
+          {session.studentId === studentProfile.id && (
+            <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">Student profile</p>
+                  <h2 className="mt-1 text-xl font-display font-bold text-gray-900">{studentProfile.name}</h2>
+                  <p className="text-sm text-gray-500">{studentProfile.university}</p>
+                </div>
+                <div className="rounded-2xl bg-teal-50 px-4 py-3 text-right">
+                  <p className="text-2xl font-black text-gray-900">{studentProfile.rating}</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-tutor">
+                    Learner rating
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                {studentProfile.receivedFeedback.map((entry) => (
+                  <div key={entry.id} className="rounded-2xl border border-gray-100 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-semibold text-gray-900">{entry.sessionSubject}</p>
+                      <StarsDisplay value={entry.overallRating} size="text-sm" />
+                    </div>
+                    <p className="mt-2 text-sm leading-relaxed text-gray-600">{entry.comment}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft">
+            <h2 className="text-xl font-display font-bold text-gray-900">Next Actions</h2>
+            <div className="mt-4 flex flex-col gap-3">
+              {isUpcoming && session.format === "online" && session.meetingLink && (
+                <a
+                  href={session.meetingLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-tutor px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-tutor/20 transition hover:-translate-y-0.5 hover:bg-teal-700"
+                >
+                  <span className="material-icons-round text-lg">videocam</span>
+                  Start Session
+                </a>
+              )}
+              <Link
+                to="/tutor/dashboard/messages"
+                className="inline-flex items-center justify-center gap-2 rounded-full border-2 border-tutor px-6 py-3 text-sm font-semibold text-tutor transition hover:bg-teal-50"
+              >
+                <span className="material-icons-round text-lg">chat</span>
+                Message Student
+              </Link>
+              {isUpcoming && !showCancel && (
+                <button
+                  onClick={() => setShowCancel(true)}
+                  className="rounded-full px-6 py-3 text-sm font-semibold text-red-500 transition hover:bg-red-50 hover:text-red-700"
+                >
+                  Cancel Session
+                </button>
+              )}
+              {isUpcoming && showCancel && (
+                <div className="rounded-2xl bg-red-50 p-4 text-sm text-red-700">
+                  <p className="font-semibold">Cancel this session?</p>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={() => navigate("/tutor/dashboard/sessions")}
+                      className="rounded-full bg-red-500 px-4 py-2 font-semibold text-white transition hover:bg-red-600"
+                    >
+                      Yes, cancel
+                    </button>
+                    <button
+                      onClick={() => setShowCancel(false)}
+                      className="rounded-full bg-white px-4 py-2 font-semibold text-red-600 transition hover:bg-red-100"
+                    >
+                      Keep session
+                    </button>
+                  </div>
+                </div>
+              )}
+              {isCancelled && (
+                <Link
+                  to="/tutor/dashboard/requests"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-tutor px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-tutor/20 transition hover:bg-teal-700"
+                >
+                  <span className="material-icons-round text-lg">inbox</span>
+                  View Requests
+                </Link>
+              )}
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InfoCard({ icon, tone, label, value, helper }) {
+  const tones = {
+    teal: "bg-teal-50 text-tutor",
+    purple: "bg-purple-50 text-purple-600",
+    green: "bg-green-50 text-green-600",
+    orange: "bg-orange-50 text-orange-600",
+    emerald: "bg-emerald-50 text-emerald-600",
+  };
+
+  return (
+    <div className="flex items-start gap-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-soft">
+      <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${tones[tone]}`}>
+        <span className="material-icons-round">{icon}</span>
+      </div>
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">{label}</p>
+        <p className="mt-1 font-semibold capitalize text-gray-900">{value}</p>
+        {helper && <p className="text-sm text-gray-500">{helper}</p>}
+      </div>
+    </div>
+  );
+}
+
+function Field({ as = "input", label, value, onChange, ...props }) {
+  const Tag = as;
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-semibold text-gray-700">{label}</span>
+      <Tag
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-tutor focus:ring-2 focus:ring-tutor/20"
+        {...props}
+      />
+    </label>
+  );
+}
+
+function SelectField({ label, value, onChange, options }) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-semibold text-gray-700">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-tutor focus:ring-2 focus:ring-tutor/20"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function ReflectionCard({ label, value }) {
+  return (
+    <div className="rounded-2xl bg-gray-50 p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">{label}</p>
+      <p className="mt-2 text-sm leading-relaxed text-gray-600">{value || "Not provided."}</p>
+    </div>
+  );
+}
+
+function FeedbackSummaryCard({ title, entry, accent, extra }) {
+  const accentClass = accent === "tutor" ? "text-tutor" : "text-primary";
+  return (
+    <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-xl font-display font-bold text-gray-900">{title}</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Submitted {new Date(entry.submittedAt).toLocaleString()}
+            {entry.anonymous ? " • Anonymous setting enabled" : ""}
+          </p>
+        </div>
+        <div className="text-right">
+          <p className={`text-2xl font-black ${accentClass}`}>{entry.overallRating}</p>
+          <StarsDisplay value={entry.overallRating} />
+        </div>
+      </div>
+      <p className="mt-4 text-sm leading-relaxed text-gray-600">{entry.comment || "No written comment provided."}</p>
+      {entry.flag && (
+        <div className="mt-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <span className="font-semibold">Flagged issue:</span> {entry.flag.type}
+          {entry.flag.details ? ` • ${entry.flag.details}` : ""}
+        </div>
+      )}
+      {extra && <div className="mt-4">{extra}</div>}
+    </section>
+  );
 }

@@ -71,6 +71,9 @@ export default function Hero() {
                                     <p className="text-secondary text-sm font-medium">
                                         Calculus &amp; Linear Algebra
                                     </p>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Helps students improve confidence, solve faster, and perform better in exams.
+                                    </p>
                                 </div>
                                 <div className="ml-auto flex items-center gap-1 bg-yellow-50 px-2.5 py-1 rounded-lg text-yellow-600 text-sm font-bold">
                                     <span className="material-icons-round text-sm">star</span>
@@ -78,10 +81,10 @@ export default function Hero() {
                                 </div>
                             </div>
 
-                            <div className="space-y-3">
-                                <div className="h-2 bg-gray-100 rounded w-3/4" />
-                                <div className="h-2 bg-gray-100 rounded w-full" />
-                                <div className="h-2 bg-gray-100 rounded w-5/6" />
+                            <div className="text-sm text-gray-600 leading-relaxed">
+                                <p>
+                                    A structured math support session designed to build speed, clarity, and exam confidence.
+                                </p>
                             </div>
 
                             <div className="mt-6 flex justify-between items-center">

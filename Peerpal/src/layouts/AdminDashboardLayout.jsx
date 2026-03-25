@@ -7,6 +7,7 @@ const NAV_ITEMS = [
     { to: "/admin/dashboard", icon: "dashboard", label: "Dashboard", end: true },
     { to: "/admin/dashboard/users", icon: "manage_accounts", label: "User Management" },
     { to: "/admin/dashboard/sessions", icon: "gavel", label: "Sessions & Disputes" },
+    { to: "/admin/dashboard/feedback", icon: "reviews", label: "Feedback Ops" },
     { to: "/admin/dashboard/payouts", icon: "account_balance", label: "Financials" },
     { to: "/admin/dashboard/settings", icon: "settings_applications", label: "System Config" },
 ];

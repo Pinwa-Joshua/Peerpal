@@ -11,6 +11,8 @@ import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import ForgotPassword from "./pages/ForgotPassword";
 import StudentOnboarding from "./pages/StudentOnboarding";
+import StudentLearningQuiz from "./pages/StudentLearningQuiz";
+import TutorLearningQuiz from "./pages/TutorLearningQuiz";
 
 /* Student Dashboard */
 import DashboardLayout from "./layouts/DashboardLayout";
@@ -22,6 +24,7 @@ import Progress from "./pages/dashboard/Progress";
 import Wallet from "./pages/dashboard/Wallet";
 import Settings from "./pages/dashboard/Settings";
 import SessionDetail from "./pages/dashboard/SessionDetail";
+import FeedbackHub from "./pages/dashboard/FeedbackHub";
 
 /* Tutor Portal */
 import TutorOnboarding from "./pages/TutorOnboarding";
@@ -35,6 +38,7 @@ import Earnings from "./pages/tutor/Earnings";
 import Availability from "./pages/tutor/Availability";
 import Students from "./pages/tutor/Students";
 import TutorSettings from "./pages/tutor/TutorSettings";
+import TutorFeedbackHub from "./pages/tutor/TutorFeedbackHub";
 
 /* Admin Portal */
 import AdminLogin from "./pages/admin/AdminLogin";
@@ -44,6 +48,7 @@ import AdminUsers from "./pages/admin/AdminUsers";
 import AdminSessions from "./pages/admin/AdminSessions";
 import AdminPayouts from "./pages/admin/AdminPayouts";
 import AdminSettings from "./pages/admin/AdminSettings";
+import AdminFeedback from "./pages/admin/AdminFeedback";
 
 function LandingPage() {
   return (
@@ -69,7 +74,9 @@ function App() {
         <Route path="/signup" element={<SignUp />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/onboarding/student" element={<StudentOnboarding />} />
+        <Route path="/onboarding/student/quiz" element={<StudentLearningQuiz />} />
         <Route path="/onboarding/tutor" element={<TutorOnboarding />} />
+        <Route path="/onboarding/tutor/quiz" element={<TutorLearningQuiz />} />
 
         {/* Student Dashboard */}
         <Route path="/dashboard" element={<DashboardLayout />}>
@@ -79,6 +86,7 @@ function App() {
           <Route path="sessions/:id" element={<SessionDetail />} />
           <Route path="messages" element={<Messages />} />
           <Route path="progress" element={<Progress />} />
+          <Route path="feedback" element={<FeedbackHub />} />
           <Route path="wallet" element={<Wallet />} />
           <Route path="settings" element={<Settings />} />
         </Route>
@@ -91,6 +99,7 @@ function App() {
           <Route path="sessions/:id" element={<TutorSessionDetail />} />
           <Route path="messages" element={<TutorMessages />} />
           <Route path="earnings" element={<Earnings />} />
+          <Route path="feedback" element={<TutorFeedbackHub />} />
           <Route path="availability" element={<Availability />} />
           <Route path="students" element={<Students />} />
           <Route path="settings" element={<TutorSettings />} />
@@ -102,6 +111,7 @@ function App() {
           <Route index element={<AdminDashboardHome />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="sessions" element={<AdminSessions />} />
+          <Route path="feedback" element={<AdminFeedback />} />
           <Route path="payouts" element={<AdminPayouts />} />
           <Route path="settings" element={<AdminSettings />} />
         </Route>

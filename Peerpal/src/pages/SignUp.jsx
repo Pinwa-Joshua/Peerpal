@@ -36,9 +36,9 @@ export default function SignUp() {
             await login(email, password);
 
             if (role === "tutor") {
-                navigate("/onboarding/tutor");
+                navigate("/onboarding/tutor/quiz");
             } else {
-                navigate("/onboarding/student");
+                navigate("/onboarding/student/quiz");
             }
         } catch (err) {
             setError(err.message);

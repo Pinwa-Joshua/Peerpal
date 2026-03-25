@@ -5,6 +5,7 @@ const STATS = [
     { label: "Active Tutors", value: "312", change: "+5%", changeType: "positive", icon: "school", color: "text-purple-600", bg: "bg-purple-50" },
     { label: "Gross Platform Volume", value: "₦245,000", change: "+18%", changeType: "positive", icon: "account_balance", color: "text-emerald-600", bg: "bg-emerald-50" },
     { label: "Active Disputes", value: "4", change: "-2", changeType: "positive", icon: "gavel", color: "text-rose-600", bg: "bg-rose-50" },
+    { label: "Flagged Feedback", value: "1", change: "+1", changeType: "negative", icon: "reviews", color: "text-amber-600", bg: "bg-amber-50" },
 ];
 
 const RECENT_ACTIVITY = [
@@ -30,7 +31,7 @@ export default function AdminDashboardHome() {
             </div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 {STATS.map((stat, idx) => (
                     <div key={idx} className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
                         <div className="flex justify-between items-start">
@@ -99,8 +100,8 @@ export default function AdminDashboardHome() {
                         </div>
                     </div>
                     <div className="p-3 border-t border-slate-100 bg-slate-50 mt-auto">
-                        <Link to="/admin/dashboard/users" className="text-sm font-medium text-purple-600 hover:text-purple-700 w-full text-center block">
-                            View All Activity
+                        <Link to="/admin/dashboard/feedback" className="text-sm font-medium text-purple-600 hover:text-purple-700 w-full text-center block">
+                            Review Feedback Operations
                         </Link>
                     </div>
                 </div>

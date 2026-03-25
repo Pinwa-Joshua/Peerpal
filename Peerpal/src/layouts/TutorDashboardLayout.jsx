@@ -7,6 +7,7 @@ const NAV_ITEMS = [
     { to: "/tutor/dashboard", icon: "dashboard", label: "Dashboard", end: true },
     { to: "/tutor/dashboard/requests", icon: "inbox", label: "Session Requests" },
     { to: "/tutor/dashboard/sessions", icon: "event_note", label: "My Sessions" },
+    { to: "/tutor/dashboard/feedback", icon: "fact_check", label: "Feedback" },
     { to: "/tutor/dashboard/messages", icon: "chat_bubble", label: "Messages" },
     { to: "/tutor/dashboard/earnings", icon: "account_balance_wallet", label: "Earnings" },
     { to: "/tutor/dashboard/availability", icon: "calendar_month", label: "Availability" },

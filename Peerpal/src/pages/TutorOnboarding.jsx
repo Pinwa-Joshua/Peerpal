@@ -40,6 +40,12 @@ const SAMPLE_COURSES = [
   "Microeconomics", "Macroeconomics",
   "Academic English", "Business Law", "Psychology 101",
   "Sociology 101", "Political Science", "Philosophy 101",
+  "Mathematics", "Further Mathematics", "English Language",
+  "Literature in English", "Physics", "Chemistry", "Biology",
+  "Agricultural Science", "Economics", "Commerce", "Accounting",
+  "Government", "Civic Education", "Geography", "History",
+  "Social Studies", "Christian Religious Studies (CRS)",
+  "Islamic Religious Studies (IRS)",
 ];
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -839,7 +845,6 @@ export default function TutorOnboarding() {
   };
 
   const finish = () => {
-    // TODO: persist data then redirect to tutor dashboard
     navigate("/tutor/dashboard");
   };
 

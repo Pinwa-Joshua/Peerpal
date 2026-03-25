@@ -7,6 +7,7 @@ const NAV_ITEMS = [
     { to: "/dashboard", icon: "dashboard", label: "Dashboard", end: true },
     { to: "/dashboard/browse", icon: "search", label: "Browse Tutors" },
     { to: "/dashboard/sessions", icon: "event_note", label: "My Sessions" },
+    { to: "/dashboard/feedback", icon: "rate_review", label: "Feedback" },
     { to: "/dashboard/messages", icon: "chat_bubble", label: "Messages" },
     { to: "/dashboard/progress", icon: "insights", label: "Progress" },
     { to: "/dashboard/wallet", icon: "account_balance_wallet", label: "Wallet" },

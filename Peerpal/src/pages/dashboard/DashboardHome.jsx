@@ -115,7 +115,7 @@ export default function DashboardHome() {
                     className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-full shadow-lg shadow-primary/20 hover:bg-blue-800 transition-all hover:-translate-y-0.5"
                 >
                     <span className="material-icons-round text-lg">search</span>
-                    Find a Tutor
+                    Search Courses
                 </Link>
                 <Link
                     to="/dashboard/sessions"
@@ -204,13 +204,13 @@ export default function DashboardHome() {
             <section>
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-display font-bold text-gray-900">
-                        Recommended Tutors
+                        Recommended Matches
                     </h2>
                     <Link
                         to="/dashboard/browse"
                         className="text-sm text-primary font-semibold hover:underline inline-flex items-center gap-1"
                     >
-                        Browse all
+                        Explore search
                         <span className="material-icons-round text-sm">
                             arrow_forward
                         </span>
