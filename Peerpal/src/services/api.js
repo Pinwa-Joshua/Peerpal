@@ -2,6 +2,7 @@
 // Replaces actual HTTP requests with mock data to unblock frontend development.
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "");
 
 const mockUser = {
     id: 1,
@@ -83,6 +84,67 @@ export const MatchesAPI = {
         };
         mockSessions.push(newSession);
         return { message: "Session requested", session: newSession };
+    },
+    recommendTutor: async ({
+        subject,
+        subject_id = null,
+        prefer_same_university = false,
+    } = {}) => {
+        if (!subject) {
+            throw new Error("A subject is required to find a tutor match.");
+        }
+
+        if (API_BASE_URL) {
+            const token = localStorage.getItem("access_token");
+            const response = await fetch(`${API_BASE_URL}/api/matches/recommend`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({
+                    subject,
+                    subject_id,
+                    prefer_same_university,
+                }),
+            });
+
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                throw new Error(data.error || "Match not created");
+            }
+
+            return data;
+        }
+
+        await delay(700);
+        const normalizedSubject = subject.toLowerCase();
+        const matchedTutor = mockTutors.find((tutor) =>
+            tutor.subjects.some((entry) => entry.toLowerCase().includes(normalizedSubject))
+        );
+
+        if (!matchedTutor) {
+            throw new Error("No suitable tutor found");
+        }
+
+        const mockMatch = {
+            id: Date.now(),
+            tutorName: matchedTutor.name,
+            subject,
+            date: new Date().toISOString().split("T")[0],
+            status: "upcoming",
+        };
+
+        mockSessions.push(mockMatch);
+
+        return {
+            message: "Match created",
+            tutor_id: matchedTutor.id,
+            match_id: mockMatch.id,
+            probability: 0.91,
+            same_university: false,
+        };
     },
     getMySessions: async () => {
         await delay(400);

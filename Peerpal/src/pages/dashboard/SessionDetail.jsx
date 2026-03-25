@@ -2,11 +2,14 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useFeedback } from "../../context/FeedbackContext";
 import {
-  DimensionBars,
   FeedbackStatusPill,
-  StarRatingInput,
-  StarsDisplay,
 } from "../../components/feedback/FeedbackWidgets";
+import {
+  createEmptyRatings,
+  LEARNER_RATING_FIELDS,
+  SessionRatingForm,
+  SessionRatingSummary,
+} from "../../components/feedback/SessionRating";
 
 const STATUS_CFG = {
   confirmed: { bg: "bg-green-50", text: "text-green-700", dot: "bg-green-500", label: "Confirmed" },
@@ -15,33 +18,12 @@ const STATUS_CFG = {
   cancelled: { bg: "bg-red-50", text: "text-red-600", dot: "bg-red-500", label: "Cancelled" },
 };
 
-const reportOptions = [
-  { value: "", label: "No issue to report" },
-  { value: "misconduct", label: "Misconduct" },
-  { value: "missed-session", label: "Missed or delayed session" },
-  { value: "communication", label: "Communication issue" },
-];
-
 export default function SessionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getSessionByRole, submitFeedback, tutorProfiles } = useFeedback();
+  const { getSessionByRole, submitFeedback } = useFeedback();
   const session = getSessionByRole("student", Number(id));
-
-  const [form, setForm] = useState({
-    ratings: {
-      clarity: 0,
-      patience: 0,
-      subjectKnowledge: 0,
-      communication: 0,
-    },
-    comment: "",
-    improvedUnderstanding: "",
-    needsImprovement: "",
-    anonymous: false,
-    flagType: "",
-    flagDetails: "",
-  });
+  const [ratings, setRatings] = useState(createEmptyRatings(LEARNER_RATING_FIELDS));
   const [status, setStatus] = useState({ type: "", message: "" });
   const [showCancel, setShowCancel] = useState(false);
 
@@ -62,21 +44,15 @@ export default function SessionDetail() {
     );
   }
 
-  const tutorProfile = tutorProfiles.find((entry) => entry.id === session.tutorId);
   const st = STATUS_CFG[session.status];
   const isUpcoming = session.tab === "upcoming";
   const isCompleted = session.tab === "completed";
   const isCancelled = session.tab === "cancelled";
-
   const studentFeedback = session.feedback.student;
   const tutorFeedback = session.feedback.tutor;
-  const canSubmit = Object.values(form.ratings).every((value) => value > 0);
 
-  const updateRating = (key, value) => {
-    setForm((current) => ({
-      ...current,
-      ratings: { ...current.ratings, [key]: value },
-    }));
+  const handleRate = (key, value) => {
+    setRatings((current) => ({ ...current, [key]: value }));
   };
 
   const handleSubmit = () => {
@@ -84,20 +60,9 @@ export default function SessionDetail() {
       submitFeedback({
         sessionId: session.id,
         role: "student",
-        payload: {
-          ratings: form.ratings,
-          comment: form.comment,
-          anonymous: form.anonymous,
-          reflection: {
-            improvedUnderstanding: form.improvedUnderstanding,
-            needsImprovement: form.needsImprovement,
-          },
-          flag: form.flagType
-            ? { type: form.flagType, details: form.flagDetails }
-            : null,
-        },
+        payload: { ratings },
       });
-      setStatus({ type: "success", message: "Feedback submitted and locked for this session." });
+      setStatus({ type: "success", message: "Tutor rating submitted for this session." });
     } catch (error) {
       setStatus({ type: "error", message: error.message });
     }
@@ -138,16 +103,6 @@ export default function SessionDetail() {
                 <span className="text-sm font-semibold text-gray-900">{session.tutor}</span>
                 <span className="text-xs text-gray-400">•</span>
                 <span className="text-sm text-gray-500">{session.university}</span>
-                {tutorProfile && (
-                  <>
-                    <span className="text-xs text-gray-400">•</span>
-                    <span className="flex items-center gap-1 text-sm text-gray-500">
-                      <span className="font-semibold text-gray-900">{tutorProfile.rating}</span>
-                      <StarsDisplay value={tutorProfile.rating} size="text-sm" />
-                      <span>({tutorProfile.reviews})</span>
-                    </span>
-                  </>
-                )}
               </div>
               <p className="mt-3 max-w-3xl text-sm leading-relaxed text-gray-500">{session.tutorBio}</p>
             </div>
@@ -164,8 +119,8 @@ export default function SessionDetail() {
                 to="/dashboard/feedback"
                 className="inline-flex items-center gap-2 rounded-xl border-2 border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-primary hover:text-primary"
               >
-                <span className="material-icons-round text-lg">rate_review</span>
-                Feedback hub
+                <span className="material-icons-round text-lg">star_rate</span>
+                Ratings
               </Link>
             </div>
           </div>
@@ -196,17 +151,17 @@ export default function SessionDetail() {
           <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-xl font-display font-bold text-gray-900">Two-Way Feedback Status</h2>
-                <p className="text-sm text-gray-500">Each side submits independently after the session ends.</p>
+                <h2 className="text-xl font-display font-bold text-gray-900">Two-Way Rating Status</h2>
+                <p className="text-sm text-gray-500">Each user submits their rating independently after the session is completed.</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <FeedbackStatusPill
                   submitted={!!studentFeedback}
-                  label={studentFeedback ? "Your feedback sent" : "Your feedback pending"}
+                  label={studentFeedback ? "Your rating submitted" : "Your rating pending"}
                 />
                 <FeedbackStatusPill
                   submitted={!!tutorFeedback}
-                  label={tutorFeedback ? "Tutor feedback received" : "Tutor feedback pending"}
+                  label={tutorFeedback ? "Tutor submitted privately" : "Tutor pending"}
                 />
               </div>
             </div>
@@ -222,199 +177,36 @@ export default function SessionDetail() {
             </section>
           )}
 
-          {isCompleted && studentFeedback && (
-            <FeedbackSummaryCard
-              title="Your Submitted Feedback"
-              accent="primary"
-              entry={studentFeedback}
-              extra={
-                <div className="grid gap-3 md:grid-cols-2">
-                  <ReflectionCard
-                    label="Did the session improve understanding?"
-                    value={studentFeedback.reflection?.improvedUnderstanding}
-                  />
-                  <ReflectionCard
-                    label="What still needs improvement?"
-                    value={studentFeedback.reflection?.needsImprovement}
-                  />
-                </div>
-              }
-            />
-          )}
-
           {isCompleted && !studentFeedback && (
-            <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-display font-bold text-gray-900">Leave Feedback for This Session</h2>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Rate clarity, patience, subject knowledge, and communication. Your review is tied to this session only.
-                  </p>
-                </div>
-                <label className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-600">
-                  <input
-                    type="checkbox"
-                    checked={form.anonymous}
-                    onChange={(event) =>
-                      setForm((current) => ({ ...current, anonymous: event.target.checked }))
-                    }
-                  />
-                  Anonymous profile review
-                </label>
-              </div>
-
-              <div className="mt-5 grid gap-4 md:grid-cols-2">
-                <StarRatingInput
-                  label="Clarity of explanation"
-                  value={form.ratings.clarity}
-                  onChange={(value) => updateRating("clarity", value)}
-                />
-                <StarRatingInput
-                  label="Patience"
-                  value={form.ratings.patience}
-                  onChange={(value) => updateRating("patience", value)}
-                />
-                <StarRatingInput
-                  label="Subject knowledge"
-                  value={form.ratings.subjectKnowledge}
-                  onChange={(value) => updateRating("subjectKnowledge", value)}
-                />
-                <StarRatingInput
-                  label="Communication skills"
-                  value={form.ratings.communication}
-                  onChange={(value) => updateRating("communication", value)}
-                />
-              </div>
-
-              <div className="mt-5 grid gap-4">
-                <Field
-                  as="textarea"
-                  rows={4}
-                  value={form.comment}
-                  onChange={(value) => setForm((current) => ({ ...current, comment: value }))}
-                  placeholder="Describe your experience with this tutor."
-                  label="Review and comments"
-                />
-                <Field
-                  as="textarea"
-                  rows={3}
-                  value={form.improvedUnderstanding}
-                  onChange={(value) =>
-                    setForm((current) => ({ ...current, improvedUnderstanding: value }))
-                  }
-                  placeholder="Did the session improve your understanding?"
-                  label="Learning reflection"
-                />
-                <Field
-                  as="textarea"
-                  rows={3}
-                  value={form.needsImprovement}
-                  onChange={(value) =>
-                    setForm((current) => ({ ...current, needsImprovement: value }))
-                  }
-                  placeholder="What areas still need improvement?"
-                  label="Areas to revisit"
-                />
-              </div>
-
-              <div className="mt-5 grid gap-4 md:grid-cols-[0.85fr_1.15fr]">
-                <SelectField
-                  label="Flag or report an issue"
-                  value={form.flagType}
-                  onChange={(value) => setForm((current) => ({ ...current, flagType: value }))}
-                  options={reportOptions}
-                />
-                <Field
-                  as="textarea"
-                  rows={3}
-                  value={form.flagDetails}
-                  onChange={(value) => setForm((current) => ({ ...current, flagDetails: value }))}
-                  placeholder="Add issue details for admins if needed."
-                  label="Issue details"
-                />
-              </div>
-
-              {status.message && (
-                <div
-                  className={`mt-5 rounded-2xl px-4 py-3 text-sm ${
-                    status.type === "success"
-                      ? "bg-emerald-50 text-emerald-700"
-                      : "bg-rose-50 text-rose-700"
-                  }`}
-                >
-                  {status.message}
-                </div>
-              )}
-
-              <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-gray-500">
-                  Duplicate submissions are blocked automatically once this is sent.
-                </p>
-                <button
-                  type="button"
-                  disabled={!canSubmit}
-                  onClick={handleSubmit}
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition hover:-translate-y-0.5 hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <span className="material-icons-round text-lg">send</span>
-                  Submit feedback
-                </button>
-              </div>
-            </section>
+            <SessionRatingForm
+              title="Rate Your Tutor"
+              subtitle="Use quick numeric ratings only. Written feedback is disabled to keep the process fast and objective."
+              fields={LEARNER_RATING_FIELDS}
+              ratings={ratings}
+              onRate={handleRate}
+              onSubmit={handleSubmit}
+              submitLabel="Submit learner rating"
+              status={status}
+            />
           )}
 
-          {isCompleted && tutorFeedback && (
-            <FeedbackSummaryCard
-              title="Tutor Feedback About You"
-              accent="tutor"
-              entry={tutorFeedback}
-              extra={
-                <div className="grid gap-3 md:grid-cols-2">
-                  <ReflectionCard label="Topics covered" value={tutorFeedback.sessionNotes?.topicsCovered} />
-                  <ReflectionCard label="Recommended revision" value={tutorFeedback.recommendation} />
-                  <ReflectionCard label="Strengths" value={tutorFeedback.sessionNotes?.strengths} />
-                  <ReflectionCard label="Weaknesses" value={tutorFeedback.sessionNotes?.weaknesses} />
-                </div>
-              }
+          {isCompleted && studentFeedback && (
+            <SessionRatingSummary
+              title="Your Tutor Rating"
+              subtitle="This rating is now locked for this completed session."
+              entry={studentFeedback}
+              fields={LEARNER_RATING_FIELDS}
             />
+          )}
+
+          {isCompleted && (
+            <section className="rounded-3xl border border-dashed border-gray-200 bg-white p-6 text-sm text-gray-500 shadow-soft">
+              Tutor ratings remain private and are not shown to learners.
+            </section>
           )}
         </div>
 
         <div className="space-y-6">
-          {tutorProfile && (
-            <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">Tutor profile</p>
-                  <h2 className="mt-1 text-xl font-display font-bold text-gray-900">{tutorProfile.name}</h2>
-                  <p className="text-sm text-gray-500">{tutorProfile.university}</p>
-                </div>
-                <div className="rounded-2xl bg-blue-50 px-4 py-3 text-right">
-                  <p className="text-2xl font-black text-gray-900">{tutorProfile.rating}</p>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
-                    Visibility {tutorProfile.visibilityScore}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-5">
-                <DimensionBars metrics={tutorProfile.dimensions} accent="bg-primary" />
-              </div>
-
-              <div className="mt-5 space-y-3">
-                {tutorProfile.recentReviews.map((review) => (
-                  <div key={review.id} className="rounded-2xl border border-gray-100 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="font-semibold text-gray-900">{review.authorName}</p>
-                      <StarsDisplay value={review.overallRating} size="text-sm" />
-                    </div>
-                    <p className="mt-2 text-sm leading-relaxed text-gray-600">{review.comment}</p>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
           <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft">
             <h2 className="text-xl font-display font-bold text-gray-900">Next Actions</h2>
             <div className="mt-4 flex flex-col gap-3">
@@ -510,77 +302,5 @@ function InfoCard({ icon, tone, label, value, helper }) {
         {helper && <p className="text-sm text-gray-500">{helper}</p>}
       </div>
     </div>
-  );
-}
-
-function Field({ as = "input", label, value, onChange, ...props }) {
-  const Tag = as;
-  return (
-    <label className="block">
-      <span className="mb-2 block text-sm font-semibold text-gray-700">{label}</span>
-      <Tag
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-        {...props}
-      />
-    </label>
-  );
-}
-
-function SelectField({ label, value, onChange, options }) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-sm font-semibold text-gray-700">{label}</span>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function ReflectionCard({ label, value }) {
-  return (
-    <div className="rounded-2xl bg-gray-50 p-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">{label}</p>
-      <p className="mt-2 text-sm leading-relaxed text-gray-600">{value || "Not provided."}</p>
-    </div>
-  );
-}
-
-function FeedbackSummaryCard({ title, entry, accent, extra }) {
-  const accentClass = accent === "tutor" ? "text-tutor" : "text-primary";
-  return (
-    <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-xl font-display font-bold text-gray-900">{title}</h2>
-          <p className="mt-1 text-sm text-gray-500">
-            Submitted {new Date(entry.submittedAt).toLocaleString()}
-            {entry.anonymous ? " • Anonymous on profile" : ""}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className={`text-2xl font-black ${accentClass}`}>{entry.overallRating}</p>
-          <StarsDisplay value={entry.overallRating} />
-        </div>
-      </div>
-      <p className="mt-4 text-sm leading-relaxed text-gray-600">{entry.comment || "No written comment provided."}</p>
-      {entry.flag && (
-        <div className="mt-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          <span className="font-semibold">Flagged issue:</span> {entry.flag.type}
-          {entry.flag.details ? ` • ${entry.flag.details}` : ""}
-        </div>
-      )}
-      {extra && <div className="mt-4">{extra}</div>}
-    </section>
   );
 }

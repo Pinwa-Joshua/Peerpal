@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useFeedback } from "../../context/FeedbackContext";
+import { MatchesAPI } from "../../services/api";
 
-/* ─── mock data ─── */
 const STATS = [
     { icon: "event_available", label: "Total Sessions", value: "12", color: "bg-blue-50 text-primary" },
     { icon: "menu_book", label: "Subjects", value: "4", color: "bg-green-50 text-green-600" },
@@ -32,7 +34,7 @@ const UPCOMING_SESSIONS = [
         initials: "JP",
         gradient: "from-emerald-500 to-teal-600",
         subject: "Data Structures",
-        date: "Fri, 14 Feb · 2:00 PM",
+        date: "Fri, 14 Feb - 2:00 PM",
         format: "online",
     },
 ];
@@ -71,20 +73,112 @@ const RECOMMENDED_TUTORS = [
 ];
 
 export default function DashboardHome() {
+    const feedback = useFeedback();
+    const [isMatching, setIsMatching] = useState(false);
+    const [matchResult, setMatchResult] = useState(null);
+
+    const recommendedTutors = feedback?.tutorProfiles?.length
+        ? feedback.tutorProfiles.slice(0, 3)
+        : RECOMMENDED_TUTORS;
+
+    const actionButtonClass = "inline-flex items-center gap-2 rounded-full border-2 border-primary px-5 py-2.5 text-sm font-semibold text-primary transition hover:bg-blue-50";
+
+    const getMatchSubject = () => {
+        const rankedCourse = feedback?.courseCatalog
+            ?.slice()
+            ?.sort((a, b) => (b.popularity || 0) - (a.popularity || 0))[0];
+
+        if (rankedCourse?.category) return rankedCourse.category;
+        if (recommendedTutors[0]?.subjects?.[0]) return recommendedTutors[0].subjects[0];
+        return "Calculus II";
+    };
+
+    const handleMatchTutor = async () => {
+        const subject = getMatchSubject();
+
+        setIsMatching(true);
+        try {
+            const result = await MatchesAPI.recommendTutor({
+                subject,
+                prefer_same_university: true,
+            });
+
+            setMatchResult({
+                status: "success",
+                title: "Match created",
+                message: `A tutor match was created successfully for ${subject}.`,
+                meta: result?.probability ? `Match score: ${result.probability}` : null,
+            });
+        } catch (error) {
+            const message = error?.message || "Match not created";
+            const isNotFound = /no tutors found|no suitable tutor found|match not created/i.test(message);
+
+            setMatchResult({
+                status: "error",
+                title: isNotFound ? "Match not created" : "Unable to create match",
+                message: isNotFound
+                    ? `No tutor was found for ${subject} right now.`
+                    : message,
+                meta: null,
+            });
+        } finally {
+            setIsMatching(false);
+        }
+    };
+
     return (
         <div className="max-w-7xl mx-auto space-y-8">
-            {/* ── Welcome ── */}
+            {matchResult && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
+                    <div className="w-full max-w-md rounded-[2rem] bg-white p-6 shadow-2xl">
+                        <div className="flex items-start gap-4">
+                            <div
+                                className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full ${matchResult.status === "success"
+                                    ? "bg-emerald-50 text-emerald-600"
+                                    : "bg-rose-50 text-rose-600"
+                                    }`}
+                            >
+                                <span className="material-icons-round text-2xl">
+                                    {matchResult.status === "success" ? "check_circle" : "error"}
+                                </span>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <h2 className="text-xl font-display font-bold text-slate-900">
+                                    {matchResult.title}
+                                </h2>
+                                <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                                    {matchResult.message}
+                                </p>
+                                {matchResult.meta && (
+                                    <p className="mt-2 text-sm font-semibold text-primary">
+                                        {matchResult.meta}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                        <div className="mt-6 flex justify-end">
+                            <button
+                                type="button"
+                                onClick={() => setMatchResult(null)}
+                                className={actionButtonClass}
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div>
                 <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-gray-900 flex items-center gap-2">
                     Welcome back
                     <span className="material-icons-round text-accent">waving_hand</span>
                 </h1>
                 <p className="text-gray-500 mt-1">
-                    Here's what's happening with your learning journey.
+                    Here&apos;s what&apos;s happening with your learning journey.
                 </p>
             </div>
 
-            {/* ── Stat cards ── */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {STATS.map((s) => (
                     <div
@@ -108,18 +202,17 @@ export default function DashboardHome() {
                 ))}
             </div>
 
-            {/* ── Quick actions ── */}
             <div className="flex flex-wrap gap-3">
                 <Link
                     to="/dashboard/browse"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-full shadow-lg shadow-primary/20 hover:bg-blue-800 transition-all hover:-translate-y-0.5"
+                    className={actionButtonClass}
                 >
                     <span className="material-icons-round text-lg">search</span>
                     Search Courses
                 </Link>
                 <Link
                     to="/dashboard/sessions"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 border-2 border-primary text-primary text-sm font-semibold rounded-full hover:bg-blue-50 transition"
+                    className={actionButtonClass}
                 >
                     <span className="material-icons-round text-lg">
                         calendar_today
@@ -128,16 +221,26 @@ export default function DashboardHome() {
                 </Link>
                 <Link
                     to="/dashboard/messages"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 border-2 border-gray-200 text-gray-600 text-sm font-semibold rounded-full hover:bg-gray-50 transition"
+                    className={actionButtonClass}
                 >
                     <span className="material-icons-round text-lg">
                         chat_bubble_outline
                     </span>
                     Messages
                 </Link>
+                <button
+                    type="button"
+                    onClick={handleMatchTutor}
+                    disabled={isMatching}
+                    className={`${actionButtonClass} disabled:cursor-not-allowed disabled:opacity-60`}
+                >
+                    <span className="material-icons-round text-lg">
+                        {isMatching ? "hourglass_top" : "person_search"}
+                    </span>
+                    {isMatching ? "Matching..." : "Match Tutor"}
+                </button>
             </div>
 
-            {/* ── Upcoming Sessions ── */}
             <section>
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-display font-bold text-gray-900">
@@ -200,7 +303,6 @@ export default function DashboardHome() {
                 </div>
             </section>
 
-            {/* ── Recommended Tutors ── */}
             <section>
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-display font-bold text-gray-900">
@@ -217,7 +319,7 @@ export default function DashboardHome() {
                     </Link>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {RECOMMENDED_TUTORS.map((tutor) => (
+                    {recommendedTutors.map((tutor) => (
                         <div
                             key={tutor.id}
                             className="bg-white rounded-2xl border border-gray-100 shadow-soft p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 group"
@@ -255,7 +357,7 @@ export default function DashboardHome() {
                             </div>
                             <div className="flex items-center justify-between">
                                 <span className="text-gray-500 font-medium text-sm">
-                                    ₦{tutor.rate}/hr
+                                    N{tutor.rate}/hr
                                 </span>
                                 <Link
                                     to="/dashboard/browse"

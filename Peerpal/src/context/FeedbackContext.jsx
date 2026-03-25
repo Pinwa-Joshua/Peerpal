@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 
 const FeedbackContext = createContext(null);
 
-const STORAGE_KEY = "peerpal_feedback_state_v2";
+const STORAGE_KEY = "peerpal_feedback_state_v3";
 
 const roundToOneDecimal = (value) => Math.round(value * 10) / 10;
 
@@ -25,13 +25,67 @@ const summarizeRatings = (records, keys) => {
 };
 
 const studentDimensionKeys = [
-  "clarity",
-  "patience",
-  "subjectKnowledge",
+  "teachingClarity",
   "communication",
+  "punctuality",
+  "helpfulness",
+  "subjectKnowledge",
 ];
 
-const tutorDimensionKeys = ["engagement", "preparedness", "participation"];
+const tutorDimensionKeys = [
+  "punctuality",
+  "preparedness",
+  "communication",
+  "engagement",
+  "courtesy",
+];
+
+const normalizeFeedbackRecord = (record) => {
+  const fallback = Math.max(
+    1,
+    Math.round(record.overallRating || averageFromRatings(record.ratings) || 4)
+  );
+
+  const ratings =
+    record.fromRole === "student"
+      ? {
+          teachingClarity: record.ratings?.teachingClarity ?? record.ratings?.clarity ?? fallback,
+          communication: record.ratings?.communication ?? fallback,
+          punctuality:
+            record.ratings?.punctuality ??
+            (record.flag?.type === "missed-session" ? Math.max(1, fallback - 2) : fallback),
+          helpfulness: record.ratings?.helpfulness ?? record.ratings?.patience ?? fallback,
+          subjectKnowledge: record.ratings?.subjectKnowledge ?? fallback,
+        }
+      : {
+          punctuality:
+            record.ratings?.punctuality ??
+            (record.flag?.type === "no-show" ? 1 : fallback),
+          preparedness: record.ratings?.preparedness ?? fallback,
+          communication: record.ratings?.communication ?? record.ratings?.participation ?? fallback,
+          engagement: record.ratings?.engagement ?? record.ratings?.participation ?? fallback,
+          courtesy:
+            record.ratings?.courtesy ??
+            record.ratings?.respectfulness ??
+            (record.flag?.type === "poor-behavior" ? Math.max(1, fallback - 2) : fallback),
+        };
+
+  return {
+    ...record,
+    ratings,
+    overallRating: averageFromRatings(ratings),
+    comment: record.comment || "",
+    reflection: record.reflection || null,
+    recommendation: record.recommendation || "",
+    sessionNotes: record.sessionNotes || null,
+    flag: record.flag?.type ? record.flag : null,
+  };
+};
+
+const normalizeState = (state) => ({
+  ...state,
+  feedbackRecords: (state.feedbackRecords || []).map(normalizeFeedbackRecord),
+});
 
 const initialState = {
   tutorDirectory: [
@@ -919,13 +973,13 @@ const initialState = {
 };
 
 const readState = () => {
-  if (typeof window === "undefined") return initialState;
+  if (typeof window === "undefined") return normalizeState(initialState);
   try {
     const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (!stored) return initialState;
+    if (!stored) return normalizeState(initialState);
 
     const parsed = JSON.parse(stored);
-    return {
+    return normalizeState({
       ...initialState,
       ...parsed,
       tutorDirectory: parsed.tutorDirectory || initialState.tutorDirectory,
@@ -935,10 +989,10 @@ const readState = () => {
       tutorSessions: parsed.tutorSessions || initialState.tutorSessions,
       feedbackRecords: parsed.feedbackRecords || initialState.feedbackRecords,
       moderationActions: parsed.moderationActions || initialState.moderationActions,
-    };
+    });
   } catch (error) {
     console.error("Failed to parse feedback state", error);
-    return initialState;
+    return normalizeState(initialState);
   }
 };
 
@@ -1072,11 +1126,11 @@ export function FeedbackProvider({ children }) {
       submittedAt: new Date().toISOString(),
       ratings: payload.ratings,
       overallRating: averageFromRatings(payload.ratings),
-      comment: payload.comment || "",
-      reflection: payload.reflection || null,
-      recommendation: payload.recommendation || "",
-      sessionNotes: payload.sessionNotes || null,
-      flag: payload.flag?.type ? payload.flag : null,
+      comment: "",
+      reflection: null,
+      recommendation: "",
+      sessionNotes: null,
+      flag: null,
     };
 
     setState((current) => ({

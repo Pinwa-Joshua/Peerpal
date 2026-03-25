@@ -31,7 +31,6 @@ const BLOCKED_DATES = [
 export default function Availability() {
     const [schedule, setSchedule] = useState(INITIAL_SCHEDULE);
     const [format, setFormat] = useState("both");
-    const [rate, setRate] = useState(120);
     const [blockedDates, setBlockedDates] = useState(BLOCKED_DATES);
     const [saved, setSaved] = useState(false);
 
@@ -84,7 +83,7 @@ export default function Availability() {
             )}
 
             {/* Stats strip */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-soft p-4 text-center">
                     <p className="text-3xl font-display font-extrabold text-tutor">
                         {totalSlots}
@@ -94,14 +93,6 @@ export default function Availability() {
                     </p>
                 </div>
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-soft p-4 text-center">
-                    <p className="text-3xl font-display font-extrabold text-tutor">
-                        ₦{rate}
-                    </p>
-                    <p className="text-xs text-gray-400 font-semibold uppercase mt-1">
-                        Hourly Rate
-                    </p>
-                </div>
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-soft p-4 text-center col-span-2 sm:col-span-1">
                     <p className="text-3xl font-display font-extrabold text-tutor capitalize">
                         {format}
                     </p>
@@ -222,29 +213,6 @@ export default function Availability() {
                                 </button>
                             ))}
                         </div>
-                    </div>
-
-                    {/* Hourly rate */}
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-soft p-6">
-                        <h3 className="font-display font-bold text-gray-900 mb-4">
-                            Hourly Rate
-                        </h3>
-                        <div className="flex items-center gap-3">
-                            <span className="text-lg font-bold text-gray-400">R</span>
-                            <input
-                                type="number"
-                                min={50}
-                                max={500}
-                                step={10}
-                                value={rate}
-                                onChange={(e) => {
-                                    setRate(Number(e.target.value));
-                                    setSaved(false);
-                                }}
-                                className="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 text-lg font-display font-bold text-gray-900 focus:border-tutor focus:ring-2 focus:ring-tutor/20 outline-none transition"
-                            />
-                        </div>
-                        <p className="text-xs text-gray-400 mt-2">Min ₦50 – Max ₦500</p>
                     </div>
 
                     {/* Blocked dates */}

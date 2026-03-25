@@ -28,13 +28,19 @@ export function StarRatingInput({ label, value, onChange, accent = "primary" }) 
   return (
     <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-semibold text-gray-700">{label}</p>
-        <div className="flex items-center gap-1">
+        <div>
+          <p className="text-sm font-semibold text-gray-700">{label}</p>
+          <p className="mt-1 text-xs text-gray-400">
+            {value > 0 ? `${value}/5 selected` : "Select 1 to 5"}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
           {Array.from({ length: 5 }).map((_, index) => (
             <button
               key={index}
               type="button"
               onClick={() => onChange(index + 1)}
+              aria-label={`${label}: ${index + 1} star${index === 0 ? "" : "s"}`}
               className="transition-transform hover:scale-110"
             >
               <span
@@ -46,6 +52,9 @@ export function StarRatingInput({ label, value, onChange, accent = "primary" }) 
               </span>
             </button>
           ))}
+          <span className={`min-w-10 text-right text-sm font-bold ${value > 0 ? activeClass : "text-gray-400"}`}>
+            {value || "--"}
+          </span>
         </div>
       </div>
     </div>
