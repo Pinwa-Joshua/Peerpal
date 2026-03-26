@@ -1,4 +1,7 @@
-from flask import Blueprint, request, jsonify
+import os
+
+file_path = r"C:\Users\MVP\Downloads\PeerPal\BACKEND\peer tutoring\app\routes\matches.py"
+content = """from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..database import db
 from ..models import Match, Session, Tutor, User, Notification, Subject
@@ -46,8 +49,6 @@ def my_sessions():
     } for s in sessions])
 
 # RECOMMEND MATCH
-
-
 @matches_bp.route("/recommend", methods=["POST"])
 @jwt_required()
 @profile_complete_required
@@ -59,6 +60,10 @@ def recommend_match():
     subject_id = data.get("subject_id")    # for DB
     prefer_same_university = data.get("prefer_same_university", False)
     
+    # ─── PARSE POTENTIAL FRONTEND FILTERS ───
+    mode = data.get("mode") or data.get("meetingMode") 
+    price = data.get("price")
+    rating_filter = data.get("rating") or data.get("ratingFilter") 
 
     if not learner.learner_style:
         return jsonify({"error": "Please complete your learning style quiz"}), 400
@@ -69,6 +74,14 @@ def recommend_match():
     # Optionally filter for same university if student wants
     if prefer_same_university and learner.university_id:
         tutors_query = tutors_query.filter(Tutor.user.has(university_id=learner.university_id))
+
+    # Process rating filter (safely convert "4.0+", "4.5+" etc. to float)
+    if rating_filter and str(rating_filter).lower() != "any rating":
+        try:
+            min_rating = float(str(rating_filter).replace("+", "").strip())
+            tutors_query = tutors_query.filter(User.average_rating >= min_rating)
+        except ValueError:
+            pass # Ignore malformed ratings
 
     tutors = tutors_query.all()
 
@@ -89,8 +102,8 @@ def recommend_match():
 
         # Example ML features
         features = [
-            tutor_user.average_rating,
-            tutor_user.rating_count,
+            tutor_user.average_rating if tutor_user.average_rating else 0.0,
+            tutor_user.rating_count if tutor_user.rating_count else 0,
             1 if t.experience_level else 0,
             Match.query.filter_by(tutor_id=tutor_user.id).count(),
             0,  # placeholder for avg_improvement
@@ -117,7 +130,7 @@ def recommend_match():
         return jsonify({"error": "No suitable tutor found"}), 404
 
     # Create the match
-    match = Match(tutor_id=best_tutor.id, tutee_id=learner.id, subject_id= subject_id)
+    match = Match(tutor_id=best_tutor.id, tutee_id=learner.id, subject_id=subject_id)
     match.end_date = match.start_date + timedelta(days=90)
     db.session.add(match)
 
@@ -134,3 +147,8 @@ def recommend_match():
         "probability": round(best_score, 2),
         "same_university": best_tutor.university_id == learner.university_id if learner.university_id else False
     })
+"""
+
+with open(file_path, "w", encoding="utf-8") as f:
+    f.write(content)
+print("Updated matches.py")

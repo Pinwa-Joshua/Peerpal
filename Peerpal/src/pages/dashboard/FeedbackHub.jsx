@@ -1,16 +1,49 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { useFeedback } from "../../context/FeedbackContext";
+import { MatchesAPI } from "../../services/api";
 import {
   FeedbackStatusPill,
   MetricCard,
 } from "../../components/feedback/FeedbackWidgets";
 
 export default function FeedbackHub() {
-  const { getStudentSessions } = useFeedback();
-  const sessions = getStudentSessions();
-  const completedSessions = sessions.filter((session) => session.tab === "completed");
+  const [completedSessions, setCompletedSessions] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchSessions = async () => {
+      try {
+        const resp = await MatchesAPI.getSessions();
+        const allSessions = Array.isArray(resp) ? resp : [];
+        const completed = allSessions.filter(s => s.status === "completed" || s.tab === "completed").map(s => {
+          return {
+            ...s,
+            feedback: {
+              student: s.feedback_status !== "pending",
+              tutor: s.feedback_status !== "pending"
+            },
+            subject: s.subject || "Subject",
+            tutor: s.tutor_name || `Tutor ${s.tutor_id}`,
+            topic: "Session",
+            date: new Date(s.date).toLocaleDateString()
+          };
+        });
+        setCompletedSessions(completed);
+      } catch (err) {
+        console.error("Error fetching sessions for feedback hub:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSessions();
+  }, []);
+
   const pending = completedSessions.filter((session) => !session.feedback.student);
   const submitted = completedSessions.filter((session) => session.feedback.student);
+
+  if (loading) {
+    return <div className="max-w-7xl mx-auto py-20 text-center text-gray-500">Loading Rating Center...</div>;
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -20,7 +53,7 @@ export default function FeedbackHub() {
             Rating Center
           </h1>
           <p className="mt-1 text-gray-500">
-            Submit your private session ratings without seeing the tutor&apos;s rating.
+            Submit your private session ratings without seeing the tutor's rating.
           </p>
         </div>
         <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
@@ -73,7 +106,7 @@ export default function FeedbackHub() {
                     {session.topic} with {session.tutor}
                   </p>
                   <p className="mt-2 text-xs font-medium uppercase tracking-[0.18em] text-gray-400">
-                    Session #{session.id} • {session.date}
+                    Session #{session.id} &bull; {session.date}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">

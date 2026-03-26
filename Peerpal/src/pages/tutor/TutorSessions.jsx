@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { useFeedback } from "../../context/FeedbackContext";
 import { FeedbackStatusPill } from "../../components/feedback/FeedbackWidgets";
+import { MatchesAPI } from "../../services/api";
 
 const TABS = ["upcoming", "completed", "cancelled"];
 
@@ -13,9 +13,48 @@ const STATUS_STYLES = {
 
 export default function TutorSessions() {
   const [activeTab, setActiveTab] = useState("upcoming");
-  const { getTutorSessions } = useFeedback();
-  const sessions = getTutorSessions();
+  const [sessions, setSessions] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    MatchesAPI.getSessions()
+      .then((data) => {
+        if (isMounted) {
+          const apiSessions = Array.isArray(data) ? data : [];
+          // Map backend format to component expectations
+          const formatted = apiSessions.map(s => {
+             let tab = "upcoming";
+             if (s.status === "completed") tab = "completed";
+             else if (s.status === "cancelled" || s.status === "rejected") tab = "cancelled";
+
+             return {
+                 id: s.id,
+                 tab,
+                 student: s.tutee_name || `Student ${s.tutee_id}`,
+                 subject: s.subject || "Subject",
+                 date: new Date(s.date).toLocaleString(),
+                 format: s.session_type || "online",
+                 status: s.status,
+                 feedbackStatus: s.feedback_status || "pending"
+             };
+          });
+          setSessions(formatted);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to fetch tutor sessions:", err);
+        if (isMounted) setLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const filtered = sessions.filter((session) => session.tab === activeTab);
+
+  if (loading) return <div className="p-8 text-center text-gray-500">Loading sessions...</div>;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -29,11 +68,7 @@ export default function TutorSessions() {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`rounded-full border-2 px-5 py-2 text-sm font-semibold capitalize transition-all ${
-              activeTab === tab
-                ? "border-tutor bg-tutor text-white"
-                : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-            }`}
+            className={`${activeTab === tab ? "border-primary bg-primary text-white" : "border-gray-100 bg-white text-gray-600 hover:border-gray-200"} rounded-full border-2 px-5 py-2 text-sm font-semibold capitalize transition-all`}
           >
             {tab}
             <span className="ml-1.5 text-xs opacity-70">
@@ -48,91 +83,66 @@ export default function TutorSessions() {
           {filtered.map((session) => (
             <article
               key={session.id}
-              className="rounded-2xl border border-gray-100 bg-white p-5 shadow-soft transition hover:shadow-lg"
+              className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-xl border border-gray-100 bg-white p-4 shadow-soft"
             >
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
-                <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <div
-                    className={`flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br ${session.gradient} font-bold text-white`}
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="font-semibold text-gray-900">{session.student}</h3>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${session.status === "cancelled" ? "bg-red-50 text-red-700" : session.status === "completed" ? "bg-blue-50 text-blue-700" : session.status === "upcoming" ? "bg-green-50 text-green-700" : "bg-yellow-50 text-yellow-700"}`}
                   >
-                    {session.initials}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold text-gray-900">{session.student}</p>
-                    <p className="text-sm text-gray-500">{session.subject}</p>
-                  </div>
+                    {session.status}
+                  </span>
                 </div>
-
-                <div className="flex items-center gap-1.5 text-sm text-gray-500">
-                  <span className="material-icons-round text-base">schedule</span>
-                  {session.date} • {session.time}
+                <p className="text-sm font-medium text-gray-900">{session.subject}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                  <span className="flex items-center gap-1">
+                    <span className="material-icons-round text-sm">schedule</span>
+                    {session.date}
+                  </span>
+                  <span className="flex items-center gap-1 capitalize">
+                    <span className="material-icons-round text-sm">videocam</span>
+                    {session.format}
+                  </span>
                 </div>
+              </div>
 
-                <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${
-                    session.format === "online" ? "bg-green-50 text-green-600" : "bg-orange-50 text-orange-600"
-                  }`}
-                >
-                  {session.format}
-                </span>
-
-                <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${STATUS_STYLES[session.status]}`}
-                >
-                  {session.status}
-                </span>
-
-                {session.tab === "completed" && (
-                  <FeedbackStatusPill
-                    submitted={!!session.feedback.tutor}
-                    label={session.feedback.tutor ? "Review sent" : "Review needed"}
-                  />
-                )}
-
-                <div className="flex-shrink-0">
+              <div className="flex w-full sm:w-auto flex-col items-stretch sm:items-end gap-2 shrink-0">
+                {session.tab === "completed" ? (
+                  <>
+                    <FeedbackStatusPill status={session.feedbackStatus} role="tutor" />
+                    {session.feedbackStatus === "pending" ? (
+                      <Link
+                        to={`/tutor/dashboard/feedback/new/${session.id}`}
+                        className="w-full sm:w-auto text-center rounded-lg bg-tutor px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 transition"
+                      >
+                        Submit Feedback
+                      </Link>
+                    ) : (
+                      <Link
+                        to={`/tutor/dashboard/sessions/${session.id}`}
+                        className="w-full sm:w-auto text-center rounded-lg border-2 border-tutor px-4 py-2 text-sm font-semibold text-tutor hover:bg-teal-50 transition"
+                      >
+                        View Record
+                      </Link>
+                    )}
+                  </>
+                ) : (
                   <Link
                     to={`/tutor/dashboard/sessions/${session.id}`}
-                    className={`inline-block rounded-xl px-5 py-2 text-sm font-semibold transition ${
-                      session.tab === "upcoming"
-                        ? "bg-tutor text-white shadow-sm hover:bg-teal-700"
-                        : session.tab === "completed" && !session.feedback.tutor
-                          ? "border-2 border-tutor text-tutor hover:bg-teal-50"
-                          : "text-tutor hover:underline"
-                    }`}
+                    className="w-full sm:w-auto text-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition shadow-sm"
                   >
-                    {session.tab === "upcoming"
-                      ? session.format === "online"
-                        ? "Start"
-                        : "Details"
-                      : session.tab === "completed" && !session.feedback.tutor
-                        ? "Submit Review"
-                        : "View Details"}
+                    Manage Session
                   </Link>
-                </div>
+                )}
               </div>
             </article>
           ))}
         </div>
       ) : (
-        <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center shadow-soft">
-          <span className="material-icons-round mb-3 block text-5xl text-gray-300">
-            {activeTab === "upcoming" ? "event_busy" : activeTab === "completed" ? "task_alt" : "cancel"}
-          </span>
-          <p className="mb-1 font-semibold text-gray-500">No {activeTab} sessions</p>
-          <p className="text-sm text-gray-400">
-            {activeTab === "upcoming"
-              ? "Accept requests to start your next session."
-              : `Your ${activeTab} sessions will appear here.`}
-          </p>
-          {activeTab === "upcoming" && (
-            <Link
-              to="/tutor/dashboard/requests"
-              className="mt-4 inline-flex items-center gap-2 rounded-full bg-tutor px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-tutor/20 transition hover:bg-teal-700"
-            >
-              <span className="material-icons-round text-lg">inbox</span>
-              View Requests
-            </Link>
-          )}
+        <div className="rounded-2xl border-2 border-dashed border-gray-200 p-8 text-center bg-gray-50/50">
+          <span className="material-icons-round text-gray-400 text-4xl mb-2">inbox</span>
+          <p className="text-gray-500 font-medium">No {activeTab} sessions found.</p>
         </div>
       )}
     </div>

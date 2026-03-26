@@ -4,9 +4,9 @@ from app.ml.model import predict_probability, le, encode_subject_safe
  # NOTE: This endpoint is for demonstration/testing only.
  # The main application uses final_match_score in /matches/recommend.
 
-ml_bp = Blueprint("ml", __name__)
+predict_bp = Blueprint("ml", __name__)
 
-@ml_bp.route("/predict", methods=["POST"])
+@predict_bp.route("/predict", methods=["POST"])
 def predict():
     data = request.get_json()
 

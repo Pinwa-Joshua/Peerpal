@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAuth } from "../../context/AuthContext";
+import { TutorAPI } from "../../services/api";
 
 /* ─── constants ─── */
 const TABS = [
@@ -46,6 +48,7 @@ const NOTIFICATION_SETTINGS = [
 ];
 
 export default function TutorSettings() {
+    const { user, refreshUser } = useAuth();
     const [tab, setTab] = useState("profile");
     const [profile, setProfile] = useState(INITIAL_PROFILE);
     const [subjects, setSubjects] = useState(INITIAL_SUBJECTS);
@@ -55,10 +58,34 @@ export default function TutorSettings() {
         Object.fromEntries(NOTIFICATION_SETTINGS.map((n) => [n.key, n.default]))
     );
     const [saved, setSaved] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
 
-    const save = () => {
-        setSaved(true);
-        setTimeout(() => setSaved(false), 3000);
+    useEffect(() => {
+        if (user) {
+            setProfile({
+                displayName: user.displayName || user.name || "Thabo Mokoena",
+                email: user.email || "thabo@wits.ac.za",
+                bio: user.bio || "Passionate about making complex concepts simple.",
+                university: user.university || "University of the Witwatersrand",
+                teachingApproach: user.teachingApproach || "I use real-world examples.",
+                profilePhoto: user.profilePhoto || null,
+            });
+        }
+    }, [user]);
+
+    const save = async () => {
+        setIsSaving(true);
+        try {
+            await TutorAPI.updateTutorProfile(profile);
+            await refreshUser();
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+        } catch (error) {
+            console.error("Failed to update profile", error);
+            alert("Error updating tutor profile.");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const addSubject = () => {
@@ -85,10 +112,11 @@ export default function TutorSettings() {
                 </div>
                 <button
                     onClick={save}
-                    className="bg-tutor hover:bg-teal-700 text-white font-semibold px-5 py-2.5 rounded-xl transition flex items-center gap-2"
+                    disabled={isSaving}
+                    className="bg-tutor hover:bg-teal-700 text-white font-semibold px-5 py-2.5 rounded-xl transition flex items-center gap-2 disabled:opacity-50"
                 >
                     <span className="material-icons-round text-lg">save</span>
-                    Save Changes
+                    {isSaving ? "Saving..." : "Save Changes"}
                 </button>
             </div>
 
@@ -106,8 +134,8 @@ export default function TutorSettings() {
                         key={t.key}
                         onClick={() => setTab(t.key)}
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all ${tab === t.key
-                                ? "bg-white text-tutor shadow-sm"
-                                : "text-gray-500 hover:text-gray-700"
+                            ? "bg-white text-tutor shadow-sm"
+                            : "text-gray-500 hover:text-gray-700"
                             }`}
                     >
                         <span className="material-icons-round text-lg">{t.icon}</span>
@@ -384,14 +412,14 @@ export default function TutorSettings() {
                                         }))
                                     }
                                     className={`relative w-11 h-6 rounded-full transition-colors ${notifications[n.key]
-                                            ? "bg-tutor"
-                                            : "bg-gray-200"
+                                        ? "bg-tutor"
+                                        : "bg-gray-200"
                                         }`}
                                 >
                                     <span
                                         className={`block w-5 h-5 bg-white rounded-full shadow absolute top-0.5 transition-transform ${notifications[n.key]
-                                                ? "translate-x-5.5"
-                                                : "translate-x-0.5"
+                                            ? "translate-x-5.5"
+                                            : "translate-x-0.5"
                                             }`}
                                     />
                                 </button>

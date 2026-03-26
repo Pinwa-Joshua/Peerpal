@@ -8,7 +8,6 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // On first load, check if we have a token and fetch user details
         const initAuth = async () => {
             const token = localStorage.getItem('access_token');
             if (token) {
@@ -26,11 +25,8 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     const login = async (email, password, role) => {
-        // Backend returns { access_token: "..." }
         const response = await AuthAPI.login({ email, password, role });
         localStorage.setItem('access_token', response.access_token);
-
-        // Fetch user details immediately after login
         const userData = await AuthAPI.getMe();
         setUser(userData);
         return userData;
@@ -41,11 +37,23 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
     };
 
+    const refreshUser = async () => {
+        const userData = await AuthAPI.getMe();
+        setUser(userData);
+        return userData;
+    };
+
     return (
-        <AuthContext.Provider value={{ user, login, logout, isLoading: loading }}>
+        <AuthContext.Provider value={{ user, login, logout, refreshUser, isLoading: loading }}>
             {children}
         </AuthContext.Provider>
     );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+    const context = useContext(AuthContext);
+    if (!context) {
+        throw new Error("useAuth must be used within an AuthProvider");
+    }
+    return context;
+};

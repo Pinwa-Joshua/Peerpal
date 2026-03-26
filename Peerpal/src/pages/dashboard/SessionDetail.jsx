@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useFeedback } from "../../context/FeedbackContext";
+
 import {
   FeedbackStatusPill,
 } from "../../components/feedback/FeedbackWidgets";
@@ -21,7 +21,7 @@ const STATUS_CFG = {
 export default function SessionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getSessionByRole, submitFeedback } = useFeedback();
+
   const session = getSessionByRole("student", Number(id));
   const [ratings, setRatings] = useState(createEmptyRatings(LEARNER_RATING_FIELDS));
   const [status, setStatus] = useState({ type: "", message: "" });

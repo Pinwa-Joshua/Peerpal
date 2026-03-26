@@ -1,5 +1,5 @@
-import { useDeferredValue, useState } from "react";
-import { useFeedback } from "../../context/FeedbackContext";
+import { useDeferredValue, useState, useEffect } from "react";
+import { TutorAPI, MatchesAPI } from "../../services/api";
 import { StarsDisplay } from "../../components/feedback/FeedbackWidgets";
 
 const SUBJECT_OPTIONS = [
@@ -38,14 +38,47 @@ function getMinRating(option) {
 }
 
 export default function BrowseTutors() {
-  const feedback = useFeedback();
-  const courseCatalog = feedback?.courseCatalog || [];
-  const tutorProfiles = feedback?.tutorProfiles || [];
+  const [tutors, setTutors] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [subject, setSubject] = useState("All");
   const [meetingMode, setMeetingMode] = useState("Both");
   const [ratingFilter, setRatingFilter] = useState("Any rating");
   const [sort, setSort] = useState("Best Match");
+
+  const [aiMatch, setAiMatch] = useState(null);
+  const [isFindingMatch, setIsFindingMatch] = useState(false);
+
+  useEffect(() => {
+    const fetchTutors = async () => {
+      try {
+        const data = await TutorAPI.getTutors();
+        setTutors(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Failed to fetch tutors", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTutors();
+  }, []);
+
+  const handleGetAiMatch = async () => {
+    setIsFindingMatch(true);
+    setAiMatch(null);
+    try {
+      const res = await MatchesAPI.recommendMatch({ subject: query || (subject !== "All" ? subject : "Math") });
+      if (res.tutor) {
+        setAiMatch(res.tutor);
+      } else {
+        alert(res.message || "No match found");
+      }
+    } catch (err) {
+      alert("Could not get recommendation");
+    } finally {
+      setIsFindingMatch(false);
+    }
+  };
 
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
 
@@ -53,58 +86,46 @@ export default function BrowseTutors() {
     deferredQuery.length < 2
       ? []
       : Array.from(
-          new Set(
-            [
-              ...courseCatalog.flatMap((course) => [
-                course.title,
-                course.subject,
-                course.category,
-                ...(course.tags || []),
-                tutorProfiles.find((tutor) => tutor.id === course.tutorId)?.name || "",
-              ]),
-            ]
-              .filter(Boolean)
-              .filter((item) => item.toLowerCase().includes(deferredQuery))
-          )
-        ).slice(0, 7);
+        new Set(
+          [
+            ...tutors.flatMap((tutor) => [
+              ...tutor.subjects,
+              tutor.name,
+              tutor.university
+            ]),
+          ]
+            .filter(Boolean)
+            .filter((item) => item.toLowerCase().includes(deferredQuery))
+        )
+      ).slice(0, 7);
 
-  let results = courseCatalog
-    .map((course) => {
-      const tutor = tutorProfiles.find((entry) => entry.id === course.tutorId);
-      if (!tutor) return null;
+  let results = tutors
+    .map((tutor) => {
+      const subjects = tutor.subjects || [];
+      const searchable = `${tutor.name} ${tutor.bio} ${subjects.join(" ")} ${tutor.university}`.toLowerCase();
 
-      const tags = course.tags || [];
-      const availability = course.availability || [];
-      const searchable = `${course.title} ${course.subject} ${course.category} ${course.description} ${tags.join(" ")} ${tutor.name} ${tutor.bio}`.toLowerCase();
-
-      let relevance = 25 + tutor.rating * 8 + tutor.reviews * 0.8 + course.popularity * 0.35;
+      let relevance = 25 + (tutor.rating || 0) * 8 + (tutor.reviews || 0) * 0.8;
 
       if (deferredQuery) {
-        if (course.title.toLowerCase().includes(deferredQuery)) relevance += 90;
-        if (`${course.subject} ${course.category}`.toLowerCase().includes(deferredQuery)) relevance += 55;
-        if (tutor.name.toLowerCase().includes(deferredQuery)) relevance += 45;
-        if (tags.some((tag) => tag.toLowerCase().includes(deferredQuery))) relevance += 28;
-        if (course.description.toLowerCase().includes(deferredQuery)) relevance += 16;
-        if (tutor.bio.toLowerCase().includes(deferredQuery)) relevance += 12;
+        if (tutor.name.toLowerCase().includes(deferredQuery)) relevance += 90;
+        if (subjects.some(s => s.toLowerCase().includes(deferredQuery))) relevance += 55;
+        if (tutor.bio?.toLowerCase().includes(deferredQuery)) relevance += 12;
       }
 
       return {
-        ...course,
-        tags,
-        availability,
-        tutor,
+        ...tutor,
         relevance,
         searchable,
       };
     })
     .filter(Boolean)
-    .filter((course) => {
-      const matchesQuery = !deferredQuery || course.searchable.includes(deferredQuery);
-      const matchesSubject = subject === "All" || course.subject === subject || course.category === subject;
-      const modeLabel = course.tutor.format === "in-person" ? "Physical" : course.tutor.format === "both" ? "Both" : "Online";
-      const matchesMeetingMode = modeLabel === meetingMode;
+    .filter((tutor) => {
+      const matchesQuery = !deferredQuery || tutor.searchable.includes(deferredQuery);
+      const matchesSubject = subject === "All" || tutor.subjects?.some(s => s.includes(subject));
+      const modeLabel = tutor.format === "in-person" ? "Physical" : tutor.format === "both" ? "Both" : "Online";
+      const matchesMeetingMode = meetingMode === "Both" || modeLabel === meetingMode || modeLabel === "Both";
 
-      const matchesRating = course.tutor.rating >= getMinRating(ratingFilter);
+      const matchesRating = tutor.rating >= getMinRating(ratingFilter);
 
       return (
         matchesQuery &&
@@ -115,12 +136,8 @@ export default function BrowseTutors() {
     });
 
   if (sort === "Best Match") results = results.slice().sort((a, b) => b.relevance - a.relevance);
-  if (sort === "Highest Rated") results = results.slice().sort((a, b) => b.tutor.rating - a.tutor.rating);
-  if (sort === "Most Popular") results = results.slice().sort((a, b) => b.popularity - a.popularity);
-  if (sort === "Lowest Price") results = results.slice().sort((a, b) => a.price - b.price);
-  if (sort === "Newest") results = results.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-  const topResult = results[0];
+  if (sort === "Highest Rated") results = results.slice().sort((a, b) => b.rating - a.rating);
+  if (sort === "Lowest Price") results = results.slice().sort((a, b) => a.rate - b.rate);
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -128,13 +145,13 @@ export default function BrowseTutors() {
         <div className="bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.18),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(14,165,233,0.18),_transparent_28%),linear-gradient(135deg,#f8fbff_0%,#ffffff_46%,#f7fbff_100%)] px-6 py-8 sm:px-8">
           <div className="max-w-4xl">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary/80">
-              Smart Course Search
+              Smart Tutor Search
             </p>
             <h1 className="mt-3 text-3xl font-display font-extrabold text-slate-900 sm:text-4xl">
-              Discover courses and tutors that match exactly what you need next.
+              Discover tutors that match exactly what you need next.
             </h1>
             <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600 sm:text-base">
-              Search by course title, subject, or tutor name. Results are ranked using keyword match,
+              Search by subject or tutor name. Results are ranked using keyword match,
               tutor quality, review count, popularity, and experience level.
             </p>
 
@@ -146,7 +163,7 @@ export default function BrowseTutors() {
                 type="text"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search courses, subjects, tags, or tutor names"
+                placeholder="Search subjects or tutor names"
                 className="w-full rounded-[1.75rem] border border-slate-200 bg-white/90 py-4 pl-14 pr-5 text-base text-slate-900 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
               {suggestions.length > 0 && (
@@ -204,68 +221,74 @@ export default function BrowseTutors() {
           <div className="flex flex-col gap-3 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-soft lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-sm font-semibold text-slate-900">
-                {results.length} course{results.length === 1 ? "" : "s"} found
+                {results.length} tutor{results.length === 1 ? "" : "s"} found
               </p>
               <p className="mt-1 text-sm text-slate-500">
                 Ranked for relevance, tutor quality, and learning fit.
               </p>
             </div>
             <div className="w-full lg:w-64">
+              <button
+                onClick={handleGetAiMatch}
+                disabled={isFindingMatch}
+                className="w-full mb-3 rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {isFindingMatch ? "Finding Match..." : "Get AI Recommendations"}
+              </button>
               <FilterSelect label="Sort By" value={sort} onChange={setSort} options={SORT_OPTIONS} />
             </div>
           </div>
 
-          {topResult && (
+          {aiMatch && (
             <div className="rounded-[2rem] border border-emerald-100 bg-[linear-gradient(135deg,#f0fdf4_0%,#ffffff_45%,#ecfeff_100%)] p-5 shadow-soft">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-700">Top Match</p>
-                  <h2 className="mt-2 text-2xl font-display font-bold text-slate-900">{topResult.title}</h2>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-700">AI Top Match</p>
+                  <h2 className="mt-2 text-2xl font-display font-bold text-slate-900">{aiMatch.name}</h2>
                   <p className="mt-1 text-sm text-slate-600">
-                    {topResult.subject} • {topResult.category} • with {topResult.tutor.name}
+                    {aiMatch.university} • {aiMatch.subjects?.join(", ")}
                   </p>
                 </div>
                 <div className="rounded-3xl bg-white/80 px-5 py-4 text-right">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Relevance Score</p>
-                  <p className="mt-1 text-3xl font-black text-slate-900">{Math.round(topResult.relevance)}</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Match Success</p>
+                  <p className="mt-1 text-3xl font-black text-slate-900">Highly Compatible</p>
                 </div>
               </div>
             </div>
           )}
 
           <div className="grid grid-cols-1 gap-4">
-            {results.map((course) => (
+            {loading ? (
+              <div className="text-center py-10">Loading tutors...</div>
+            ) : results.map((tutor) => (
               <article
-                key={course.id}
+                key={tutor.id}
                 className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-6 shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg"
               >
                 <div className="flex flex-col gap-5 xl:flex-row">
                   <div className="flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-primary">
-                        {course.subject}
+                        {tutor.subjects?.[0] || 'Tutor'}
                       </span>
                       <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                        {course.skillLevel}
+                        {tutor.university}
                       </span>
                       <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                        {course.price === 0 ? "Free" : `N${course.price}`}
-                      </span>
-                      <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
-                        {course.popularity}% popular
+                        ZAR {tutor.rate}/hr
                       </span>
                     </div>
 
-                    <h3 className="mt-4 text-2xl font-display font-bold text-slate-900">{course.title}</h3>
-                    <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">{course.description}</p>
+                    <h3 className="mt-4 text-2xl font-display font-bold text-slate-900">{tutor.name}</h3>
+                    <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">{tutor.bio}</p>
 
                     <div className="mt-4 flex flex-wrap gap-2">
-                      {course.tags.map((tag) => (
+                      {tutor.subjects?.slice(0, 3).map((sub) => (
                         <span
-                          key={tag}
+                          key={sub}
                           className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600"
                         >
-                          #{tag}
+                          #{sub.replace(/\s+/g, '')}
                         </span>
                       ))}
                     </div>
@@ -275,38 +298,23 @@ export default function BrowseTutors() {
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Tutor</p>
                         <div className="mt-3 flex items-center gap-3">
                           <div
-                            className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${course.tutor.gradient} text-sm font-bold text-white shadow-md`}
+                            className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${tutor.gradient || "from-blue-500 to-indigo-600"} text-sm font-bold text-white shadow-md`}
                           >
-                            {course.tutor.initials}
+                            {tutor.initials}
                           </div>
                           <div>
-                            <p className="font-semibold text-slate-900">{course.tutor.name}</p>
-                            <p className="text-sm text-slate-500">{course.tutorExperienceLevel} experience</p>
+                            <p className="font-semibold text-slate-900">{tutor.name}</p>
+                            <p className="text-sm text-slate-500">{tutor.format}</p>
                           </div>
                         </div>
                         <div className="mt-3 flex items-center justify-between gap-3">
                           <div>
-                            <StarsDisplay value={course.tutor.rating} size="text-sm" />
-                            <p className="mt-1 text-xs text-slate-400">{course.tutor.reviews} reviews</p>
+                            <StarsDisplay value={tutor.rating} size="text-sm" />
+                            <p className="mt-1 text-xs text-slate-400">{tutor.reviews} reviews</p>
                           </div>
                           <p className="text-sm font-semibold text-slate-700">
-                            {course.tutor.visibilityScore} visibility
+                            {tutor.active}
                           </p>
-                        </div>
-                      </div>
-
-                      <div className="rounded-3xl bg-slate-50 p-4">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Availability</p>
-                        <div className="mt-3 space-y-2">
-                          {course.availability.map((slot) => (
-                            <div
-                              key={slot.label}
-                              className="flex items-center justify-between gap-3 rounded-2xl bg-white px-3 py-2 text-sm text-slate-600"
-                            >
-                              <span>{slot.label}</span>
-                              <span className="font-semibold text-slate-900">{slot.slot}</span>
-                            </div>
-                          ))}
                         </div>
                       </div>
                     </div>
@@ -316,19 +324,17 @@ export default function BrowseTutors() {
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Why it ranks</p>
                       <ul className="mt-3 space-y-2 text-sm text-slate-600">
-                        <li>Strong keyword match across title, tags, and tutor profile</li>
-                        <li>{course.tutor.rating}/5 tutor rating with {course.tutor.reviews} reviews</li>
-                        <li>{course.popularity}% popularity signal from demand</li>
-                        <li>{course.tutorExperienceLevel} tutor experience level</li>
+                        <li>Matches {subject === "All" ? "your search" : subject}</li>
+                        <li>{tutor.rating}/5 tutor rating with {tutor.reviews} reviews</li>
                       </ul>
                     </div>
 
                     <div className="mt-5 space-y-3">
                       <button className="w-full rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800">
-                        View Course
+                        Request Session
                       </button>
                       <button className="w-full rounded-2xl border-2 border-primary px-5 py-3 text-sm font-semibold text-primary transition hover:bg-blue-50">
-                        View Tutor
+                        View Profile
                       </button>
                     </div>
                   </div>
@@ -337,10 +343,10 @@ export default function BrowseTutors() {
             ))}
           </div>
 
-          {!results.length && (
+          {!results.length && !loading && (
             <div className="rounded-[2rem] border border-slate-200 bg-white p-12 text-center shadow-soft">
               <span className="material-icons-round mb-3 block text-5xl text-slate-300">manage_search</span>
-              <p className="text-lg font-semibold text-slate-700">No matching courses found</p>
+              <p className="text-lg font-semibold text-slate-700">No matching tutors found</p>
               <p className="mt-2 text-sm text-slate-500">
                 Try broadening your keywords or relaxing one of the quality filters.
               </p>

@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { useFeedback } from "../../context/FeedbackContext";
 import { StarsDisplay } from "../../components/feedback/FeedbackWidgets";
 
 const ACTION_STYLES = {
@@ -10,13 +9,19 @@ const ACTION_STYLES = {
 };
 
 export default function AdminFeedback() {
-  const { allFeedback, flaggedCases, takeModerationAction } = useFeedback();
+  const [allFeedback, setAllFeedback] = useState([]);
+  const [flaggedCases, setFlaggedCases] = useState([]);
+
   const [filters, setFilters] = useState({
     flaggedOnly: false,
     actor: "all",
     rating: "all",
     query: "",
   });
+
+  const takeModerationAction = () => {
+    console.log("Action taken placeholder");
+  }
 
   const filteredFeedback = useMemo(() => {
     return allFeedback.filter((entry) => {
@@ -27,8 +32,7 @@ export default function AdminFeedback() {
         (filters.rating === "high" && entry.overallRating >= 4) ||
         (filters.rating === "mid" && entry.overallRating >= 3 && entry.overallRating < 4) ||
         (filters.rating === "low" && entry.overallRating < 3);
-      const searchTarget = `${entry.counterpartName} ${entry.sessionSubject} ${entry.sessionId}`
-        .toLowerCase();
+      const searchTarget = `${entry.counterpartName} ${entry.sessionSubject} ${entry.sessionId}`.toLowerCase();
       const matchesQuery =
         !filters.query || searchTarget.includes(filters.query.toLowerCase());
 
@@ -42,7 +46,7 @@ export default function AdminFeedback() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Feedback Operations</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Review platform feedback, flagged issues, and moderation decisions by user or session.
+            Review platform feedback, flagged issues, and moderation decisions.
           </p>
         </div>
         <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -157,10 +161,10 @@ export default function AdminFeedback() {
                     </p>
                     <h3 className="mt-1 font-bold text-slate-900">{item.issueType}</h3>
                     <p className="text-sm text-slate-500">
-                      {item.counterpartName} • {item.sessionSubject}
+                      {item.counterpartName} &bull; {item.sessionSubject}
                     </p>
                   </div>
-                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${ACTION_STYLES[item.action]}`}>
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${item.action === "Pending" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>
                     {item.action}
                   </span>
                 </div>
@@ -180,16 +184,10 @@ export default function AdminFeedback() {
                         takeModerationAction({
                           feedbackId: item.feedbackId,
                           action,
-                          note: `${action} action applied from admin feedback dashboard.`,
+                          note: `${action} applied from admin feedback dashboard.`,
                         })
                       }
-                      className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                        action === "warn"
-                          ? "bg-blue-50 text-blue-700 hover:bg-blue-100"
-                          : action === "suspend"
-                            ? "bg-rose-50 text-rose-700 hover:bg-rose-100"
-                            : "bg-slate-900 text-white hover:bg-slate-800"
-                      }`}
+                      className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${action === "warn" ? "bg-amber-100 text-amber-800" : action === "suspend" ? "bg-orange-100 text-orange-800" : "bg-red-100 text-red-800"}`}
                     >
                       {action === "warn" ? "Warn user" : action === "suspend" ? "Suspend user" : "Remove user"}
                     </button>
@@ -203,3 +201,4 @@ export default function AdminFeedback() {
     </div>
   );
 }
+

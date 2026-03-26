@@ -1,6 +1,6 @@
 flask
 flask-sqlalchemy
-Fflask-migrate
+flask-migrate
 flask-cors
 joblib
 scikit-learn

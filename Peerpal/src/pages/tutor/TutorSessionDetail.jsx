@@ -1,308 +1,150 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useFeedback } from "../../context/FeedbackContext";
-import {
-  FeedbackStatusPill,
-} from "../../components/feedback/FeedbackWidgets";
-import {
-  createEmptyRatings,
-  SessionRatingForm,
-  SessionRatingSummary,
-  TUTOR_RATING_FIELDS,
-} from "../../components/feedback/SessionRating";
+
+import { FeedbackStatusPill } from "../../components/feedback/FeedbackWidgets";
+import { MatchesAPI } from "../../services/api";
 
 const STATUS_CFG = {
   confirmed: { bg: "bg-green-50", text: "text-green-700", dot: "bg-green-500", label: "Confirmed" },
-  completed: { bg: "bg-teal-50", text: "text-tutor", dot: "bg-tutor", label: "Completed" },
+  pending: { bg: "bg-yellow-50", text: "text-yellow-700", dot: "bg-yellow-500", label: "Pending" },
+  completed: { bg: "bg-blue-50", text: "text-tutor", dot: "bg-tutor", label: "Completed" },
   cancelled: { bg: "bg-red-50", text: "text-red-600", dot: "bg-red-500", label: "Cancelled" },
 };
 
 export default function TutorSessionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getSessionByRole, submitFeedback } = useFeedback();
-  const session = getSessionByRole("tutor", Number(id));
-  const [notes, setNotes] = useState(session?.notes || "");
-  const [ratings, setRatings] = useState(createEmptyRatings(TUTOR_RATING_FIELDS));
-  const [status, setStatus] = useState({ type: "", message: "" });
-  const [showCancel, setShowCancel] = useState(false);
+
+  const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+     const fetchSession = async () => {
+         try {
+             // We fallback to getSessions() and filter for now instead of mock context.
+             const sessionsResp = await MatchesAPI.getSessions();
+             const sessions = Array.isArray(sessionsResp) ? sessionsResp : [];
+             const found = sessions.find(s => String(s.id) === String(id));
+             
+             if (found) {
+                // Map it roughly to the legacy UI expectations
+                let tab = "upcoming";
+                if (found.status === "completed") tab = "completed";
+                else if (found.status === "cancelled" || found.status === "rejected") tab = "cancelled";
+
+                const uiSession = {
+                    ...found,
+                    tab,
+                    student: found.tutee_name || `Student ${found.tutee_id}`,
+                    subject: found.subject || "Subject",
+                    format: found.session_type || "online",
+                    date: new Date(found.date).toLocaleString(),
+                    feedbackStatus: found.feedback_status || "pending",
+                    duration: found.duration || 1
+                };
+                setSession(uiSession);
+             }
+         } catch (err) {
+             console.error("Failed to load session detail:", err);
+         } finally {
+             setLoading(false);
+         }
+     };
+     fetchSession();
+  }, [id]);
+
+  if (loading) {
+     return <div className="max-w-3xl mx-auto py-20 text-center text-gray-500">Loading session...</div>;
+  }
 
   if (!session) {
     return (
       <div className="max-w-3xl mx-auto py-20 text-center">
-        <span className="material-icons-round mb-4 block text-6xl text-gray-300">event_busy</span>
-        <h2 className="mb-2 text-xl font-display font-bold text-gray-900">Session not found</h2>
-        <p className="mb-6 text-gray-500">This session may have been removed or does not exist.</p>
-        <Link
-          to="/tutor/dashboard/sessions"
-          className="inline-flex items-center gap-2 rounded-full bg-tutor px-6 py-3 font-semibold text-white shadow-lg shadow-tutor/20 transition hover:bg-teal-700"
+        <span className="material-icons-round mb-4 block text-6xl text-gray-300">
+          event_busy
+        </span>
+        <h2 className="mb-2 text-xl font-display font-bold text-gray-900">
+          Session not found
+        </h2>
+        <p className="mb-6 text-gray-500">
+          This session may have been removed or does not exist.
+        </p>
+        <button
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center gap-2 rounded-full bg-tutor px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-teal-700"
         >
           <span className="material-icons-round text-lg">arrow_back</span>
-          Back to Sessions
-        </Link>
+          Go Back
+        </button>
       </div>
     );
   }
 
-  const st = STATUS_CFG[session.status];
+  const st = STATUS_CFG[session.tab === "cancelled" ? "cancelled" : (session.status === "upcoming" ? "confirmed" : session.status)] || STATUS_CFG.pending;
   const isUpcoming = session.tab === "upcoming";
   const isCompleted = session.tab === "completed";
-  const isCancelled = session.tab === "cancelled";
-  const studentFeedback = session.feedback.student;
-  const tutorFeedback = session.feedback.tutor;
-
-  const handleRate = (key, value) => {
-    setRatings((current) => ({ ...current, [key]: value }));
-  };
-
-  const handleSubmit = () => {
-    try {
-      submitFeedback({
-        sessionId: session.id,
-        role: "tutor",
-        payload: { ratings },
-      });
-      setStatus({ type: "success", message: "Learner rating submitted for this session." });
-    } catch (error) {
-      setStatus({ type: "error", message: error.message });
-    }
-  };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <button
-        onClick={() => navigate("/tutor/dashboard/sessions")}
-        className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-500 transition hover:text-tutor group"
-      >
-        <span className="material-icons-round text-lg transition-transform group-hover:-translate-x-0.5">
-          arrow_back
-        </span>
-        Back to My Sessions
-      </button>
+    <div className="max-w-3xl mx-auto pb-10">
+      <div className="mb-6">
+        <button
+          onClick={() => navigate(-1)}
+          className="group inline-flex items-center gap-2 text-sm font-semibold text-gray-500 hover:text-gray-900 transition-colors"
+        >
+          <span className="material-icons-round text-lg group-hover:-translate-x-1 transition-transform">
+            arrow_back
+          </span>
+          Back
+        </button>
+      </div>
 
-      <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-soft">
-        <div className={`${st.bg} flex items-center gap-2 px-6 py-3`}>
-          <span className={`h-2 w-2 rounded-full ${st.dot}`} />
-          <span className={`text-sm font-semibold ${st.text}`}>{st.label}</span>
-          {isCancelled && session.cancelReason && (
-            <span className="ml-1 text-xs text-gray-500">{session.cancelReason}</span>
-          )}
-        </div>
-
-        <div className="p-6 sm:p-8">
-          <div className="flex flex-col gap-6 lg:flex-row">
-            <div
-              className={`flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br ${session.gradient} text-2xl font-bold text-white shadow-lg`}
-            >
-              {session.initials}
-            </div>
-            <div className="flex-1">
-              <h1 className="text-2xl font-display font-extrabold text-gray-900">{session.subject}</h1>
-              <p className="mt-1 text-gray-500">{session.topic}</p>
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                <span className="text-sm font-semibold text-gray-900">{session.student}</span>
-                <span className="text-xs text-gray-400">•</span>
-                <span className="text-sm text-gray-500">{session.university}</span>
-                <span className="text-xs text-gray-400">•</span>
-                <span className="text-sm text-gray-500">{session.year}</span>
+      <div className="space-y-6">
+        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-soft sm:p-8">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6">
+            <div className="flex gap-4">
+              <div
+                className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${statusColors[session.status] || "from-gray-400 to-gray-500"} text-xl font-bold text-white shadow-inner`}
+              >
+                {session.initials || "S"}
               </div>
-            </div>
-            <div className="flex flex-wrap gap-2 lg:flex-col">
-              <Link
-                to="/tutor/dashboard/messages"
-                className="inline-flex items-center gap-2 rounded-xl border-2 border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-tutor hover:text-tutor"
-              >
-                <span className="material-icons-round text-lg">chat</span>
-                Message
-              </Link>
-              <Link
-                to="/tutor/dashboard/feedback"
-                className="inline-flex items-center gap-2 rounded-xl border-2 border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-tutor hover:text-tutor"
-              >
-                <span className="material-icons-round text-lg">star_rate</span>
-                Ratings
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <InfoCard icon="calendar_today" tone="teal" label="Date & Time" value={session.date} helper={session.time} />
-        <InfoCard icon="timer" tone="purple" label="Duration" value={session.duration} />
-        <InfoCard
-          icon={session.format === "online" ? "videocam" : "location_on"}
-          tone={session.format === "online" ? "green" : "orange"}
-          label="Format"
-          value={session.format}
-          helper={session.location || "Meeting link available"}
-        />
-        <InfoCard
-          icon="payments"
-          tone="emerald"
-          label="Earnings"
-          value={`N${session.rate}`}
-          helper={session.paid ? "Paid" : "Pending payment"}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <div className="space-y-6">
-          <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-xl font-display font-bold text-gray-900">Two-Way Rating Status</h2>
-                <p className="text-sm text-gray-500">Learner and tutor ratings stay separate until each person submits.</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <FeedbackStatusPill
-                  submitted={!!tutorFeedback}
-                  label={tutorFeedback ? "Your rating submitted" : "Your rating pending"}
-                />
-                <FeedbackStatusPill
-                  submitted={!!studentFeedback}
-                  label={studentFeedback ? "Learner submitted privately" : "Learner pending"}
-                />
-              </div>
-            </div>
-          </section>
-
-          <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft">
-            <div className="mb-3 flex items-center gap-2">
-              <span className="material-icons-round text-tutor">description</span>
-              <h2 className="font-display text-xl font-bold text-gray-900">Your Session Notes</h2>
-            </div>
-            {isUpcoming ? (
-              <>
-                <textarea
-                  rows={4}
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                  placeholder="Add prep notes for this session."
-                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-tutor focus:ring-2 focus:ring-tutor/20"
-                />
-                <button className="mt-3 text-sm font-semibold text-tutor hover:underline">Save Notes</button>
-              </>
-            ) : (
-              <p className="text-sm leading-relaxed text-gray-600">{session.notes}</p>
-            )}
-          </section>
-
-          {isCompleted && !tutorFeedback && (
-            <SessionRatingForm
-              title="Rate the Learner"
-              subtitle="Use quick numeric ratings only. The learner will not see this rating while you are still submitting yours."
-              fields={TUTOR_RATING_FIELDS}
-              ratings={ratings}
-              onRate={handleRate}
-              onSubmit={handleSubmit}
-              submitLabel="Submit tutor rating"
-              accent="tutor"
-              status={status}
-            />
-          )}
-
-          {isCompleted && tutorFeedback && (
-            <SessionRatingSummary
-              title="Your Learner Rating"
-              subtitle="This tutor-side rating is now locked for the completed session."
-              entry={tutorFeedback}
-              fields={TUTOR_RATING_FIELDS}
-              accent="tutor"
-            />
-          )}
-
-          {isCompleted && (
-            <section className="rounded-3xl border border-dashed border-gray-200 bg-white p-6 text-sm text-gray-500 shadow-soft">
-              Learner ratings remain private and are not shown to tutors.
-            </section>
-          )}
-        </div>
-
-        <div className="space-y-6">
-          <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft">
-            <h2 className="text-xl font-display font-bold text-gray-900">Next Actions</h2>
-            <div className="mt-4 flex flex-col gap-3">
-              {isUpcoming && session.format === "online" && session.meetingLink && (
-                <a
-                  href={session.meetingLink}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-tutor px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-tutor/20 transition hover:-translate-y-0.5 hover:bg-teal-700"
-                >
-                  <span className="material-icons-round text-lg">videocam</span>
-                  Start Session
-                </a>
-              )}
-              <Link
-                to="/tutor/dashboard/messages"
-                className="inline-flex items-center justify-center gap-2 rounded-full border-2 border-tutor px-6 py-3 text-sm font-semibold text-tutor transition hover:bg-teal-50"
-              >
-                <span className="material-icons-round text-lg">chat</span>
-                Message Student
-              </Link>
-              {isUpcoming && !showCancel && (
-                <button
-                  onClick={() => setShowCancel(true)}
-                  className="rounded-full px-6 py-3 text-sm font-semibold text-red-500 transition hover:bg-red-50 hover:text-red-700"
-                >
-                  Cancel Session
-                </button>
-              )}
-              {isUpcoming && showCancel && (
-                <div className="rounded-2xl bg-red-50 p-4 text-sm text-red-700">
-                  <p className="font-semibold">Cancel this session?</p>
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      onClick={() => navigate("/tutor/dashboard/sessions")}
-                      className="rounded-full bg-red-500 px-4 py-2 font-semibold text-white transition hover:bg-red-600"
-                    >
-                      Yes, cancel
-                    </button>
-                    <button
-                      onClick={() => setShowCancel(false)}
-                      className="rounded-full bg-white px-4 py-2 font-semibold text-red-600 transition hover:bg-red-100"
-                    >
-                      Keep session
-                    </button>
+                <div className="mb-2 flex items-center gap-3">
+                  <h1 className="text-2xl font-display font-extrabold text-gray-900">
+                    {session.subject}
+                  </h1>
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${st.color}`}
+                  >
+                    <span className={`h-1.5 w-1.5 rounded-full ${st.dotColor}`}></span>
+                    {st.label}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-500">
+                  <div className="flex items-center gap-1.5">
+                    <span className="material-icons-round text-base">person</span>
+                    Student: <span className="font-semibold text-gray-900">{session.tutee_name || `Student ${session.tutee_id}`}</span>
+                  </div>
+                  <span className="hidden sm:block">&bull;</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="material-icons-round text-base">videocam</span>
+                    {session.session_type || "Online"}
                   </div>
                 </div>
-              )}
-              {isCancelled && (
-                <Link
-                  to="/tutor/dashboard/requests"
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-tutor px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-tutor/20 transition hover:bg-teal-700"
-                >
-                  <span className="material-icons-round text-lg">inbox</span>
-                  View Requests
-                </Link>
-              )}
+              </div>
             </div>
-          </section>
+
+            {session.status === "completed" && !session.feedback_submitted && ( 
+              <div className="mt-4 sm:mt-0">
+                <Link
+                  to={`/tutor/sessions/${session.id}/feedback`}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-tutor px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-teal-700"
+                >
+                  Submit Feedback Now
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function InfoCard({ icon, tone, label, value, helper }) {
-  const tones = {
-    teal: "bg-teal-50 text-tutor",
-    purple: "bg-purple-50 text-purple-600",
-    green: "bg-green-50 text-green-600",
-    orange: "bg-orange-50 text-orange-600",
-    emerald: "bg-emerald-50 text-emerald-600",
-  };
-
-  return (
-    <div className="flex items-start gap-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-soft">
-      <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${tones[tone]}`}>
-        <span className="material-icons-round">{icon}</span>
-      </div>
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">{label}</p>
-        <p className="mt-1 font-semibold capitalize text-gray-900">{value}</p>
-        {helper && <p className="text-sm text-gray-500">{helper}</p>}
       </div>
     </div>
   );

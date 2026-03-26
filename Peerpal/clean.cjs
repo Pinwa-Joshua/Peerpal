@@ -1,0 +1,12 @@
+const fs = require('fs')
+const path = 'C:/Users/MVP/Downloads/PeerPal/peerpal/src/context/FeedbackContext.jsx'
+let src = fs.readFileSync(path, 'utf8')
+src = src.replace(/const tutorDirectory = \[[\s\S]*?\];/g, 'const tutorDirectory = [];')
+src = src.replace(/const courseCatalog = \[[\s\S]*?\];/g, 'const courseCatalog = [];')
+src = src.replace(/const students = \[[\s\S]*?\];/g, 'const students = [];')
+src = src.replace(/const tutorSessions = \[[\s\S]*?\];/g, 'const tutorSessions = [];')
+src = src.replace(/const studentSessions = \[[\s\S]*?\];/g, 'const studentSessions = [];')
+src = src.replace(/const initialFeedbackRecords = \[[\s\S]*?\];/g, 'const initialFeedbackRecords = [];')
+src = src.replace(/const flaggedCases = \[[\s\S]*?\];/g, 'const flaggedCases = [];')
+fs.writeFileSync(path, src)
+console.log('done')

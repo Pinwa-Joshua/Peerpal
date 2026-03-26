@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { FinanceAPI } from "../../services/api";
 
 /* ─── mock data ─── */
-const BALANCE = { available: 2340, pending: 480, thisMonth: 1560, total: 12420 };
+const MOCK_BALANCE = { available: 2340, pending: 480, thisMonth: 1560, total: 12420 };
 
-const PAYOUT_METHODS = [
+const MOCK_PAYOUT_METHODS = [
     { id: 1, type: "bank", bank: "FNB", last4: "4521", primary: true },
 ];
 
-const TRANSACTIONS = [
+const MOCK_TRANSACTIONS = [
     { id: 1, student: "Lerato M.", subject: "Calculus II", date: "14 Mar 2026", amount: 120, status: "completed" },
     { id: 2, student: "David N.", subject: "Physics I", date: "13 Mar 2026", amount: 150, status: "completed" },
     { id: 3, student: "Aisha T.", subject: "Linear Algebra", date: "10 Mar 2026", amount: 150, status: "pending" },
@@ -18,7 +19,7 @@ const TRANSACTIONS = [
     { id: 8, student: "Zara P.", subject: "Economics 101", date: "20 Feb 2026", amount: 100, status: "completed" },
 ];
 
-const SUBJECT_EARNINGS = [
+const MOCK_SUBJECT_EARNINGS = [
     { subject: "Calculus II", earned: 2880, sessions: 24 },
     { subject: "Data Structures", earned: 3600, sessions: 24 },
     { subject: "Statistics 101", earned: 2340, sessions: 18 },
@@ -36,12 +37,63 @@ const STATUS_COLORS = {
 
 export default function Earnings() {
     const [filter, setFilter] = useState("all");
+    const [balance, setBalance] = useState(MOCK_BALANCE);
+    const [payoutMethods, setPayoutMethods] = useState(MOCK_PAYOUT_METHODS);
+    const [transactions, setTransactions] = useState(MOCK_TRANSACTIONS);
+    const [subjectEarnings, setSubjectEarnings] = useState(MOCK_SUBJECT_EARNINGS);
+    const [loading, setLoading] = useState(true);
 
-    const filtered = TRANSACTIONS.filter(
+    useEffect(() => {
+        const fetchEarnings = async () => {
+            try {
+                const data = await FinanceAPI.getEarnings();
+                if (data) {
+                    if (data.balance) setBalance(data.balance);
+                    if (data.payoutMethods) setPayoutMethods(data.payoutMethods);
+                    if (data.transactions) setTransactions(data.transactions);
+                    if (data.subjectEarnings) setSubjectEarnings(data.subjectEarnings);
+                }
+            } catch (error) {
+                console.error("Failed to fetch earnings info", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchEarnings();
+    }, []);
+
+    const handleWithdraw = async () => {
+        const amountStr = prompt("Enter amount to withdraw:", "500");
+        if (!amountStr) return;
+        const amount = Number(amountStr);
+        if (isNaN(amount) || amount <= 0 || amount > balance.available) {
+            alert("Invalid amount or insufficient funds");
+            return;
+        }
+
+        try {
+            await FinanceAPI.withdrawFunds(amount);
+            alert("Withdrawal successful!");
+            setBalance((prev) => ({ ...prev, available: prev.available - amount }));
+            setTransactions((prev) => [
+                { id: Date.now(), student: "Withdrawal", subject: "", date: new Date().toLocaleDateString(), amount: -amount, status: "completed" },
+                ...prev
+            ]);
+        } catch (error) {
+            console.error("Withdrawal failed", error);
+            alert("Withdrawal failed");
+        }
+    };
+
+    const filtered = transactions.filter(
         (t) => filter === "all" || t.status === filter
     );
 
-    const maxEarned = Math.max(...SUBJECT_EARNINGS.map((s) => s.earned));
+    if (loading) {
+        return <div className="p-8 text-center text-gray-500">Loading earnings details...</div>;
+    }
+
+    const maxEarned = subjectEarnings.length > 0 ? Math.max(...subjectEarnings.map((s) => s.earned)) : 1;
 
     return (
         <div className="max-w-5xl mx-auto space-y-6">
@@ -60,28 +112,30 @@ export default function Earnings() {
                 <div className="bg-gradient-to-br from-tutor to-tutor-light rounded-2xl p-5 text-white col-span-2 sm:col-span-1">
                     <p className="text-sm font-medium text-teal-100">Available</p>
                     <p className="text-3xl font-display font-extrabold mt-1">
-                        ₦{BALANCE.available.toLocaleString()}
+                        ₦{balance.available.toLocaleString()}
                     </p>
-                    <button className="mt-3 bg-white/20 hover:bg-white/30 text-white text-sm font-semibold px-4 py-2 rounded-full transition">
+                    <button
+                        onClick={handleWithdraw}
+                        className="mt-3 bg-white/20 hover:bg-white/30 text-white text-sm font-semibold px-4 py-2 rounded-full transition">
                         Withdraw
                     </button>
                 </div>
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-soft p-5">
                     <p className="text-xs text-gray-400 font-semibold uppercase">Pending</p>
                     <p className="text-2xl font-display font-extrabold text-gray-900 mt-1">
-                        ₦{BALANCE.pending.toLocaleString()}
+                        ₦{balance.pending.toLocaleString()}
                     </p>
                 </div>
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-soft p-5">
                     <p className="text-xs text-gray-400 font-semibold uppercase">This Month</p>
                     <p className="text-2xl font-display font-extrabold text-gray-900 mt-1">
-                        ₦{BALANCE.thisMonth.toLocaleString()}
+                        ₦{balance.thisMonth.toLocaleString()}
                     </p>
                 </div>
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-soft p-5">
                     <p className="text-xs text-gray-400 font-semibold uppercase">Total Earned</p>
                     <p className="text-2xl font-display font-extrabold text-gray-900 mt-1">
-                        ₦{BALANCE.total.toLocaleString()}
+                        ₦{balance.total.toLocaleString()}
                     </p>
                 </div>
             </div>
@@ -93,7 +147,7 @@ export default function Earnings() {
                         By Subject
                     </h3>
                     <div className="space-y-4">
-                        {SUBJECT_EARNINGS.map((s) => (
+                        {subjectEarnings.map((s) => (
                             <div key={s.subject}>
                                 <div className="flex items-center justify-between mb-1">
                                     <p className="text-sm font-semibold text-gray-700">
@@ -130,7 +184,7 @@ export default function Earnings() {
                             </button>
                         </div>
                         <div className="space-y-3">
-                            {PAYOUT_METHODS.map((pm) => (
+                            {payoutMethods.map((pm) => (
                                 <div
                                     key={pm.id}
                                     className="flex items-center gap-3 p-3 rounded-xl border border-gray-100"
@@ -173,8 +227,8 @@ export default function Earnings() {
                                     key={f}
                                     onClick={() => setFilter(f)}
                                     className={`px-4 py-1.5 rounded-full text-xs font-semibold capitalize border-2 transition-all whitespace-nowrap ${filter === f
-                                            ? "border-tutor bg-tutor text-white"
-                                            : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                                        ? "border-tutor bg-tutor text-white"
+                                        : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
                                         }`}
                                 >
                                     {f}
@@ -214,8 +268,8 @@ export default function Earnings() {
                                             </td>
                                             <td
                                                 className={`py-3 text-right font-semibold ${t.amount >= 0
-                                                        ? "text-green-600"
-                                                        : "text-gray-500"
+                                                    ? "text-green-600"
+                                                    : "text-gray-500"
                                                     }`}
                                             >
                                                 {t.amount >= 0 ? "+" : ""}R

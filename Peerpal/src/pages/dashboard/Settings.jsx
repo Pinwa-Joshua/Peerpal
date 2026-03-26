@@ -1,23 +1,55 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useAuth } from "../../context/AuthContext";
+import { UsersAPI } from "../../services/api";
 
 const TABS = ["Profile", "Preferences", "Security", "Notifications"];
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export default function Settings() {
+    const { user, refreshUser } = useAuth();
     const [activeTab, setActiveTab] = useState("Profile");
     const fileRef = useRef(null);
+    const [isSaving, setIsSaving] = useState(false);
 
     /* profile state */
     const [profile, setProfile] = useState({
         photo: "",
-        displayName: "Student",
-        bio: "Passionate about learning and collaboration.",
-        university: "University of Cape Town",
-        campus: "Main Campus",
-        year: "2nd Year",
-        faculty: "Engineering",
+        displayName: "",
+        bio: "",
+        university: "",
+        campus: "",
+        year: "",
+        faculty: "",
     });
+
+    useEffect(() => {
+        if (user) {
+            setProfile({
+                photo: user.photo || "",
+                displayName: user.displayName || user.name || "",
+                bio: user.bio || "",
+                university: user.university || "",
+                campus: user.campus || "",
+                year: user.year || "",
+                faculty: user.faculty || "",
+            });
+        }
+    }, [user]);
+
+    const handleSaveProfile = async () => {
+        setIsSaving(true);
+        try {
+            await UsersAPI.updateProfile(profile);
+            await refreshUser();
+            alert("Profile updated successfully!");
+        } catch (error) {
+            console.error("Failed to update profile", error);
+            alert("Error updating profile.");
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     /* preferences state */
     const [prefs, setPrefs] = useState({
@@ -87,8 +119,8 @@ export default function Settings() {
                         key={tab}
                         onClick={() => setActiveTab(tab)}
                         className={`px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap border-2 transition-all ${activeTab === tab
-                                ? "border-primary bg-primary text-white"
-                                : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                            ? "border-primary bg-primary text-white"
+                            : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
                             }`}
                     >
                         {tab}
@@ -249,8 +281,11 @@ export default function Settings() {
                         </p>
                     </div>
 
-                    <button className="bg-primary hover:bg-blue-800 text-white font-semibold py-3 px-8 rounded-full shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5">
-                        Save Changes
+                    <button
+                        onClick={handleSaveProfile}
+                        disabled={isSaving}
+                        className="bg-primary hover:bg-blue-800 text-white font-semibold py-3 px-8 rounded-full shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 disabled:opacity-50">
+                        {isSaving ? "Saving..." : "Save Changes"}
                     </button>
                 </div>
             )}
@@ -277,22 +312,22 @@ export default function Settings() {
                                             }))
                                         }
                                         className={`flex flex-col items-center gap-2 py-4 rounded-xl border-2 transition-all ${active
-                                                ? "border-primary bg-blue-50"
-                                                : "border-gray-200 bg-white hover:border-gray-300"
+                                            ? "border-primary bg-blue-50"
+                                            : "border-gray-200 bg-white hover:border-gray-300"
                                             }`}
                                     >
                                         <span
                                             className={`material-icons-round text-2xl ${active
-                                                    ? "text-primary"
-                                                    : "text-gray-400"
+                                                ? "text-primary"
+                                                : "text-gray-400"
                                                 }`}
                                         >
                                             {f.icon}
                                         </span>
                                         <span
                                             className={`text-sm font-semibold ${active
-                                                    ? "text-primary"
-                                                    : "text-gray-600"
+                                                ? "text-primary"
+                                                : "text-gray-600"
                                                 }`}
                                         >
                                             {f.label}
@@ -317,8 +352,8 @@ export default function Settings() {
                                         type="button"
                                         onClick={() => toggleDay(day)}
                                         className={`px-4 py-2 rounded-full text-sm font-semibold border-2 transition-all ${active
-                                                ? "border-primary bg-primary text-white"
-                                                : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                                            ? "border-primary bg-primary text-white"
+                                            : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
                                             }`}
                                     >
                                         {day}
@@ -468,14 +503,14 @@ export default function Settings() {
                                     }))
                                 }
                                 className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${notifs[item.key]
-                                        ? "bg-primary"
-                                        : "bg-gray-300"
+                                    ? "bg-primary"
+                                    : "bg-gray-300"
                                     }`}
                             >
                                 <span
                                     className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${notifs[item.key]
-                                            ? "translate-x-[22px]"
-                                            : "translate-x-0.5"
+                                        ? "translate-x-[22px]"
+                                        : "translate-x-0.5"
                                         }`}
                                 />
                             </button>
