@@ -134,3 +134,123 @@ def recommend_match():
         "probability": round(best_score, 2),
         "same_university": best_tutor.university_id == learner.university_id if learner.university_id else False
     })
+
+# RECOMMEND WITH FILTERS (returns multiple tutors with ML scores)
+@matches_bp.route("/recommend-with-filters", methods=["POST"])
+@jwt_required()
+@profile_complete_required
+def recommend_with_filters():
+    data = request.get_json()
+    user_id = get_jwt_identity()
+    learner = User.query.get(user_id)
+    
+    # Extract filters
+    subject = data.get("subject")
+    meeting_mode = data.get("meeting_mode")  # 'Online', 'Physical', 'Both'
+    min_rating = data.get("min_rating", 0)
+    min_experience_level = data.get("min_experience_level")  # 'beginner', 'intermediate', 'expert'
+    prefer_same_university = data.get("prefer_same_university", False)
+    sort_by = data.get("sort_by", "ml_score")  # 'ml_score', 'rating', 'reviews', 'price', 'newest'
+    
+    if not learner.learner_style:
+        return jsonify({"error": "Please complete your learning style quiz"}), 400
+
+    # Build query with filters
+    query = Tutor.query.join(User).filter(Tutor.verified == True, Tutor.active == True)
+    
+    # Subject filter
+    if subject and subject != "All":
+        query = query.join(User.subjects).filter(Subject.name.ilike(f"%{subject}%"))
+    
+    # Meeting mode filter (assuming Tutor has meeting_mode field - add if missing)
+    if meeting_mode and meeting_mode != "Both":
+        if hasattr(Tutor, 'meeting_mode'):
+            query = query.filter(Tutor.meeting_mode == meeting_mode)
+    
+    # Rating filter
+    if min_rating > 0:
+        query = query.filter(User.average_rating >= min_rating)
+    
+    # Experience level filter
+    if min_experience_level:
+        level_map = {'beginner': 1, 'intermediate': 2, 'expert': 3}
+        min_level = level_map.get(min_experience_level, 1)
+        # Assuming experience_level is stored as string, map to numeric
+        exp_filter = []
+        for level, num in level_map.items():
+            if num >= min_level:
+                exp_filter.append(level)
+        if exp_filter:
+            query = query.filter(Tutor.experience_level.in_(exp_filter))
+    
+    # University preference
+    if prefer_same_university and learner.university_id:
+        query = query.filter(User.university_id == learner.university_id)
+    
+    tutors = query.all()
+    
+    if not tutors:
+        return jsonify({"error": "No tutors found matching your criteria"}), 404
+
+    # Calculate ML scores for each tutor
+    scored_tutors = []
+    subject_encoded = encode_subject_safe(subject) if subject else 0
+    
+    for tutor in tutors:
+        tutor_user = tutor.user
+        
+        # ML features (same as existing recommend)
+        features = [
+            tutor_user.average_rating,
+            tutor_user.rating_count,
+            1 if tutor.experience_level else 0,  # Could map to numeric
+            Match.query.filter_by(tutor_id=tutor_user.id).count(),
+            0,  # placeholder for avg_improvement
+            subject_encoded,
+            0   # placeholder for other features
+        ]
+        
+        ml_score = final_match_score(
+            features,
+            getattr(tutor_user, "tutor_style", None),
+            getattr(learner, "learner_style", None)
+        )
+        
+        scored_tutors.append({
+            "tutor_id": tutor_user.id,
+            "name": tutor_user.username,
+            "email": tutor_user.email,
+            "rating": tutor_user.average_rating,
+            "rating_count": tutor_user.rating_count,
+            "experience_level": tutor.experience_level,
+            "subjects": [s.name for s in tutor_user.subjects],
+            "university": tutor_user.university.name if tutor_user.university else None,
+            "same_university": tutor_user.university_id == learner.university_id if learner.university_id else False,
+            "ml_score": round(ml_score, 3),
+            "profile_picture": tutor_user.profile_picture
+        })
+    
+    # Sort results
+    if sort_by == "ml_score":
+        scored_tutors.sort(key=lambda x: x["ml_score"], reverse=True)
+    elif sort_by == "rating":
+        scored_tutors.sort(key=lambda x: x["rating"], reverse=True)
+    elif sort_by == "reviews":
+        scored_tutors.sort(key=lambda x: x["rating_count"], reverse=True)
+    elif sort_by == "newest":
+        # Assuming we have created_at, sort by newest first
+        scored_tutors.sort(key=lambda x: x.get("created_at", 0), reverse=True)
+    # Add price sorting if needed
+    
+    return jsonify({
+        "tutors": scored_tutors,
+        "total_count": len(scored_tutors),
+        "filters_applied": {
+            "subject": subject,
+            "meeting_mode": meeting_mode,
+            "min_rating": min_rating,
+            "min_experience_level": min_experience_level,
+            "prefer_same_university": prefer_same_university,
+            "sort_by": sort_by
+        }
+    })
