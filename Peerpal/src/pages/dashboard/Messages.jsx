@@ -1,65 +1,106 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-
-/* ─── mock conversations ─── */
-const CONVERSATIONS = [
-    {
-        id: 1,
-        name: "Thabo M.",
-        initials: "TM",
-        gradient: "from-blue-500 to-indigo-600",
-        lastMessage: "See you at 3pm for our Calculus session!",
-        time: "2 min ago",
-        unread: 2,
-        messages: [
-            { id: 1, from: "them", text: "Hey! Are you ready for our session today?", time: "2:45 PM" },
-            { id: 2, from: "me", text: "Yes! I've been working through chapter 7. Got stuck on integration by parts.", time: "2:46 PM" },
-            { id: 3, from: "them", text: "Perfect, we can focus on that. I'll share some practice problems too.", time: "2:47 PM" },
-            { id: 4, from: "them", text: "See you at 3pm for our Calculus session!", time: "2:48 PM" },
-        ],
-    },
-    {
-        id: 2,
-        name: "Zanele D.",
-        initials: "ZD",
-        gradient: "from-yellow-400 to-orange-500",
-        lastMessage: "The Linear Algebra notes are uploaded 📎",
-        time: "1 hr ago",
-        unread: 0,
-        messages: [
-            { id: 1, from: "me", text: "Hi Zanele! Thanks for the session yesterday.", time: "10:00 AM" },
-            { id: 2, from: "them", text: "No problem! You're making great progress with eigenvalues.", time: "10:15 AM" },
-            { id: 3, from: "me", text: "Could you share those extra notes you mentioned?", time: "10:20 AM" },
-            { id: 4, from: "them", text: "The Linear Algebra notes are uploaded 📎", time: "11:30 AM" },
-        ],
-    },
-    {
-        id: 3,
-        name: "James P.",
-        initials: "JP",
-        gradient: "from-emerald-500 to-teal-600",
-        lastMessage: "Let me know if you need help with the linked list assignment.",
-        time: "3 hrs ago",
-        unread: 1,
-        messages: [
-            { id: 1, from: "them", text: "Hey! How's the Data Structures assignment going?", time: "9:00 AM" },
-            { id: 2, from: "me", text: "Slowly 😅 Binary trees are confusing.", time: "9:30 AM" },
-            { id: 3, from: "them", text: "We can go over them in our next session. They're easier than they look!", time: "9:35 AM" },
-            { id: 4, from: "them", text: "Let me know if you need help with the linked list assignment.", time: "9:40 AM" },
-        ],
-    },
-];
+import { MessagesAPI, AuthAPI } from "../../services/api";
 
 export default function Messages() {
-    const [activeId, setActiveId] = useState(CONVERSATIONS[0]?.id || null);
+    const [activeId, setActiveId] = useState(null);
     const [newMsg, setNewMsg] = useState("");
-    const active = CONVERSATIONS.find((c) => c.id === activeId);
+    const [conversations, setConversations] = useState([]);
+    const [messages, setMessages] = useState([]);
+    const [currentUser, setCurrentUser] = useState(null);
 
-    const handleSend = (e) => {
+    useEffect(() => {
+        AuthAPI.getMe().then(user => setCurrentUser(user)).catch(err => console.error("Could not fetch user", err));
+    }, []);
+
+    // Poll inbox contacts on an interval
+    useEffect(() => {
+        const fetchInbox = async () => {
+            try {
+                const inbox = await MessagesAPI.getInbox();
+                if (!Array.isArray(inbox)) return;
+                
+                // Group by sender_id to unique conversations
+                const sendersMap = new Map();
+                inbox.forEach(m => {
+                    const sId = m.sender_id || m.senderId || (m.sender && m.sender.id) || "Unknown";
+                    // keep latest message
+                    sendersMap.set(sId, m);
+                });
+                
+                const formattedConvs = Array.from(sendersMap.values()).map(lastMsg => {
+                    const senderId = lastMsg.sender_id || lastMsg.senderId || (lastMsg.sender && lastMsg.sender.id) || "Unknown";
+                    return {
+                        id: senderId,
+                        name: `Contact ${senderId}`,
+                        initials: `C${senderId}`,
+                        gradient: "from-blue-500 to-indigo-600",
+                        lastMessage: lastMsg.content || "No message",
+                        time: lastMsg.timestamp ? new Date(lastMsg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "",
+                        unread: 0,
+                    };
+                });
+                setConversations(formattedConvs);
+            } catch (err) {
+                console.error("Failed to fetch inbox:", err);
+            }
+        };
+
+        fetchInbox();
+        const interval = setInterval(fetchInbox, 10000); // Polling inbox
+        return () => clearInterval(interval);
+    }, []);
+
+    // Poll active chat thread every 3 seconds
+    useEffect(() => {
+        if (!activeId) {
+            setMessages([]);
+            return;
+        }
+
+        const fetchThread = async () => {
+            try {
+                const thread = await MessagesAPI.getThread(activeId);
+                if (!Array.isArray(thread)) return;
+                
+                const formattedMsgs = thread.map((m, idx) => ({
+                    id: m.id || idx,
+                    from: currentUser && (m.sender_id === currentUser.id || m.senderId === currentUser.id) ? "me" : "them",
+                    text: m.content,
+                    time: m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""
+                }));
+                setMessages(formattedMsgs);
+            } catch (err) {
+                console.error("Failed to fetch thread:", err);
+            }
+        };
+
+        fetchThread();
+        const interval = setInterval(fetchThread, 3000); // Poll every 3s
+        return () => clearInterval(interval);
+    }, [activeId, currentUser]);
+
+    const active = conversations.find((c) => c.id === activeId);
+
+    const handleSend = async (e) => {
         e.preventDefault();
-        if (!newMsg.trim()) return;
-        // In a real app we'd push to state / API
-        setNewMsg("");
+        if (!newMsg.trim() || !activeId) return;
+
+        try {
+            await MessagesAPI.sendMessage(activeId, newMsg);
+            
+            // Optimistic update
+            const optimisticMsg = {
+                id: Date.now(),
+                from: "me",
+                text: newMsg,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+            setMessages((prev) => [...prev, optimisticMsg]);
+            setNewMsg("");
+        } catch (error) {
+            console.error("Failed to send message:", error);
+        }
     };
 
     return (
@@ -79,7 +120,7 @@ export default function Messages() {
 
                     {/* List */}
                     <div className="flex-1 overflow-y-auto scrollbar-hide">
-                        {CONVERSATIONS.map((conv) => (
+                        {conversations.map((conv) => (
                             <button
                                 key={conv.id}
                                 onClick={() => setActiveId(conv.id)}
@@ -143,7 +184,7 @@ export default function Messages() {
 
                         {/* Messages */}
                         <div className="flex-1 overflow-y-auto scrollbar-hide px-5 py-4 space-y-3">
-                            {active.messages.map((msg) => (
+                            {messages.map((msg) => (
                                 <div
                                     key={msg.id}
                                     className={`flex ${msg.from === "me"

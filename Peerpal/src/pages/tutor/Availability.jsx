@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { TutorAPI } from "../../services/api";
 
 /* ─── constants ─── */
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -14,11 +15,11 @@ const FORMAT_OPTIONS = [
 ];
 
 const INITIAL_SCHEDULE = {
-    Mon: ["Morning", "Afternoon"],
-    Tue: ["Morning"],
-    Wed: ["Morning", "Afternoon", "Evening"],
+    Mon: [],
+    Tue: [],
+    Wed: [],
     Thu: [],
-    Fri: ["Afternoon"],
+    Fri: [],
     Sat: [],
     Sun: [],
 };
@@ -33,6 +34,28 @@ export default function Availability() {
     const [format, setFormat] = useState("both");
     const [blockedDates, setBlockedDates] = useState(BLOCKED_DATES);
     const [saved, setSaved] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchAvailability = async () => {
+            try {
+                const data = await TutorAPI.getAvailability();
+                // Ensure all days exist in the data structure
+                const normalizedSchedule = { ...INITIAL_SCHEDULE };
+                for (const day in data) {
+                    if (DAYS.includes(day) || Object.keys(INITIAL_SCHEDULE).includes(day)) {
+                        normalizedSchedule[day] = data[day] || [];
+                    }
+                }
+                setSchedule(normalizedSchedule);
+            } catch (error) {
+                console.error("Failed to load availability:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchAvailability();
+    }, []);
 
     const toggle = (day, block) => {
         setSchedule((prev) => {
@@ -52,7 +75,19 @@ export default function Availability() {
         0
     );
 
-    const save = () => setSaved(true);
+    const save = async () => {
+        try {
+            await TutorAPI.updateAvailability(schedule);
+            setSaved(true);
+        } catch (error) {
+            console.error("Failed to save availability:", error);
+            alert("Error saving availability changes.");
+        }
+    };
+
+    if (isLoading) {
+        return <div className="max-w-5xl mx-auto p-12 text-center text-gray-500 font-semibold animate-pulse">Loading availability...</div>;
+    }
 
     return (
         <div className="max-w-5xl mx-auto space-y-6">
@@ -135,8 +170,8 @@ export default function Availability() {
                                             key={day}
                                             onClick={() => toggle(day, tb.label)}
                                             className={`rounded-xl py-3 text-xs font-semibold border-2 transition-all ${active
-                                                    ? "border-tutor bg-tutor text-white"
-                                                    : "border-gray-200 bg-white text-gray-400 hover:border-gray-300"
+                                                ? "border-tutor bg-tutor text-white"
+                                                : "border-gray-200 bg-white text-gray-400 hover:border-gray-300"
                                                 }`}
                                         >
                                             {active ? "✓" : "—"}
@@ -160,8 +195,8 @@ export default function Availability() {
                                                 key={tb.label}
                                                 onClick={() => toggle(day, tb.label)}
                                                 className={`flex-1 rounded-xl py-2 text-xs font-semibold border-2 transition-all ${active
-                                                        ? "border-tutor bg-tutor text-white"
-                                                        : "border-gray-200 bg-white text-gray-400"
+                                                    ? "border-tutor bg-tutor text-white"
+                                                    : "border-gray-200 bg-white text-gray-400"
                                                     }`}
                                             >
                                                 {tb.label}
@@ -190,22 +225,22 @@ export default function Availability() {
                                         setSaved(false);
                                     }}
                                     className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${format === f.value
-                                            ? "border-tutor bg-teal-50"
-                                            : "border-gray-200 hover:border-gray-300"
+                                        ? "border-tutor bg-teal-50"
+                                        : "border-gray-200 hover:border-gray-300"
                                         }`}
                                 >
                                     <span
                                         className={`material-icons-round ${format === f.value
-                                                ? "text-tutor"
-                                                : "text-gray-400"
+                                            ? "text-tutor"
+                                            : "text-gray-400"
                                             }`}
                                     >
                                         {f.icon}
                                     </span>
                                     <span
                                         className={`text-sm font-semibold ${format === f.value
-                                                ? "text-tutor"
-                                                : "text-gray-600"
+                                            ? "text-tutor"
+                                            : "text-gray-600"
                                             }`}
                                     >
                                         {f.label}

@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useFeedback } from "../../context/FeedbackContext";
 import { FeedbackStatusPill } from "../../components/feedback/FeedbackWidgets";
+import { MatchesAPI } from "../../services/api";
 
 const TABS = ["upcoming", "completed", "cancelled"];
 
 const STATUS_STYLES = {
+  upcoming: "bg-blue-50 text-blue-600",
   confirmed: "bg-green-50 text-green-600",
   pending: "bg-yellow-50 text-yellow-600",
   completed: "bg-blue-50 text-primary",
@@ -14,9 +16,72 @@ const STATUS_STYLES = {
 
 export default function MySessions() {
   const [activeTab, setActiveTab] = useState("upcoming");
+  const [sessionsData, setSessionsData] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   const { getStudentSessions } = useFeedback();
-  const sessions = getStudentSessions();
+
+  useEffect(() => {
+    let isMounted = true;
+    MatchesAPI.getMySessions()
+      .then((data) => {
+        if (isMounted) {
+          setSessionsData(data);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to fetch sessions:", err);
+        if (isMounted) setLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const contextSessions = getStudentSessions();
+  const sessions = sessionsData.map((apiSession) => {
+    const ctxMatch = contextSessions.find((cs) => cs.id === apiSession.id);
+
+    const nameParts = (apiSession.tutorName || "Unknown").split(" ");
+    const computedInitials =
+      nameParts.length > 1
+        ? nameParts[0][0] + nameParts[1][0]
+        : nameParts[0].substring(0, 2);
+
+    return {
+      id: apiSession.id,
+      tutor: apiSession.tutorName || "Unknown Tutor",
+      subject: apiSession.subject,
+      date: apiSession.date,
+      time: apiSession.time || (ctxMatch ? ctxMatch.time : "TBD"),
+      format: apiSession.format || (ctxMatch ? ctxMatch.format : "online"),
+      status: apiSession.status || "upcoming",
+      tab:
+        apiSession.status === "completed"
+          ? "completed"
+          : apiSession.status === "cancelled"
+            ? "cancelled"
+            : "upcoming",
+      gradient: ctxMatch?.gradient || "from-blue-500 to-indigo-600",
+      initials: ctxMatch?.initials || computedInitials.toUpperCase(),
+      feedback: ctxMatch?.feedback || { student: null },
+    };
+  });
+
   const filtered = sessions.filter((session) => session.tab === activeTab);
+
+  if (loading) {
+    return (
+      <div className="max-w-5xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-gray-900">My Sessions</h1>
+          <p className="mt-1 text-gray-500">Manage upcoming bookings and complete your post-session feedback.</p>
+        </div>
+        <div className="py-12 text-center text-gray-500">Loading sessions...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -30,11 +95,10 @@ export default function MySessions() {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`rounded-full border-2 px-5 py-2 text-sm font-semibold capitalize transition-all ${
-              activeTab === tab
+            className={`rounded-full border-2 px-5 py-2 text-sm font-semibold capitalize transition-all ${activeTab === tab
                 ? "border-primary bg-primary text-white"
                 : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-            }`}
+              }`}
           >
             {tab}
             <span className="ml-1.5 text-xs opacity-70">
@@ -70,9 +134,8 @@ export default function MySessions() {
                 </div>
 
                 <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${
-                    session.format === "online" ? "bg-green-50 text-green-600" : "bg-orange-50 text-orange-600"
-                  }`}
+                  className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${session.format === "online" ? "bg-green-50 text-green-600" : "bg-orange-50 text-orange-600"
+                    }`}
                 >
                   {session.format}
                 </span>
@@ -93,13 +156,12 @@ export default function MySessions() {
                 <div className="flex-shrink-0">
                   <Link
                     to={`/dashboard/sessions/${session.id}`}
-                    className={`inline-block rounded-xl px-5 py-2 text-sm font-semibold transition ${
-                      session.tab === "upcoming"
+                    className={`inline-block rounded-xl px-5 py-2 text-sm font-semibold transition ${session.tab === "upcoming"
                         ? "bg-primary text-white shadow-sm hover:bg-blue-800"
                         : session.tab === "completed" && !session.feedback.student
                           ? "border-2 border-primary text-primary hover:bg-blue-50"
                           : "text-primary hover:underline"
-                    }`}
+                      }`}
                   >
                     {session.tab === "upcoming"
                       ? session.format === "online"

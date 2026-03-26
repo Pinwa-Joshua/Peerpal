@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { NavLink, Outlet, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { NotificationsAPI } from "../services/api";
 
 /* ─── sidebar nav items ─── */
 const NAV_ITEMS = [
@@ -18,6 +19,9 @@ const NAV_ITEMS = [
 export default function TutorDashboardLayout() {
     const [collapsed, setCollapsed] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
+    const [notificationsOpen, setNotificationsOpen] = useState(false);
+    const [notifications, setNotifications] = useState([]);
+    const notificationsRef = useRef(null);
     const navigate = useNavigate();
     const { logout } = useAuth();
 
@@ -25,6 +29,46 @@ export default function TutorDashboardLayout() {
         logout();
         navigate("/");
     };
+
+    useEffect(() => {
+        const fetchNotifications = async () => {
+            try {
+                const data = await NotificationsAPI.getNotifications();
+                if (Array.isArray(data)) {
+                    setNotifications(data);
+                }
+            } catch (err) {
+                console.error("Failed to fetch notifications", err);
+            }
+        };
+
+        fetchNotifications();
+        const intervalId = setInterval(fetchNotifications, 15000); // 15 seconds
+
+        return () => clearInterval(intervalId);
+    }, []);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (notificationsRef.current && !notificationsRef.current.contains(event.target)) {
+                setNotificationsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const markAsRead = async (id, e) => {
+        e.stopPropagation();
+        try {
+            await NotificationsAPI.markAsRead(id);
+            setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+        } catch (err) {
+            console.error("Failed to mark as read", err);
+        }
+    };
+
+    const unreadCount = notifications.filter(n => !n.is_read).length;
 
     const linkClasses = ({ isActive }) =>
         `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group ${isActive
@@ -152,12 +196,72 @@ export default function TutorDashboardLayout() {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <button className="relative p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-xl transition">
-                            <span className="material-icons-round text-xl">
-                                notifications
-                            </span>
-                            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
-                        </button>
+                        <div className="relative" ref={notificationsRef}>
+                            <button
+                                onClick={() => setNotificationsOpen(!notificationsOpen)}
+                                className="relative p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-xl transition"
+                            >
+                                <span className="material-icons-round text-xl">
+                                    notifications
+                                </span>
+                                {unreadCount > 0 && (
+                                    <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-white">
+                                        {unreadCount > 9 ? "9+" : unreadCount}
+                                    </span>
+                                )}
+                            </button>
+                            {notificationsOpen && (
+                                <div className="absolute right-0 mt-3 w-80 rounded-2xl bg-white shadow-xl ring-1 ring-black/5 z-50 overflow-hidden transform transition-all duration-200 origin-top-right">
+                                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50/80 bg-gray-50/50">
+                                        <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
+                                    </div>
+                                    <div className="max-h-[360px] overflow-y-auto scrollbar-hide py-1">
+                                        {notifications.length === 0 ? (
+                                            <div className="px-4 py-8 text-center">
+                                                <div className="mx-auto w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center mb-3">
+                                                    <span className="material-icons-round text-gray-400 text-2xl">
+                                                        notifications_none
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm text-gray-500">No notifications yet</p>
+                                            </div>
+                                        ) : (
+                                            notifications.map((msg) => (
+                                                <div
+                                                    key={msg.id}
+                                                    onClick={(e) => {
+                                                        if (!msg.is_read) markAsRead(msg.id, e);
+                                                    }}
+                                                    className={`group relative flex items-start gap-3 px-4 py-3 hover:bg-gray-50/80 transition-colors mx-2 my-1 rounded-xl cursor-pointer ${!msg.is_read ? "bg-teal-50/50" : ""
+                                                        }`}
+                                                >
+                                                    {!msg.is_read && (
+                                                        <div className="absolute left-2 top-0 bottom-0 w-1 bg-tutor rounded-full my-3" />
+                                                    )}
+                                                    <div className="flex-1 min-w-0 pr-6 pl-1">
+                                                        <p className={`text-sm tracking-tight line-clamp-2 ${!msg.is_read ? "text-gray-900 font-medium" : "text-gray-600"
+                                                                }`}>
+                                                            {msg.message}
+                                                        </p>
+                                                        <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-400">
+                                                            <span className="material-icons-round text-[12px] opacity-70">
+                                                                schedule
+                                                            </span>
+                                                            {new Date(msg.created_at).toLocaleString([], {
+                                                                month: "short",
+                                                                day: "numeric",
+                                                                hour: "2-digit",
+                                                                minute: "2-digit"
+                                                            })}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                         <Link
                             to="/tutor/dashboard/settings"
                             className="w-9 h-9 rounded-full bg-gradient-to-br from-tutor to-tutor-light flex items-center justify-center text-white text-sm font-bold"

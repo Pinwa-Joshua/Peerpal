@@ -4,6 +4,31 @@
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "");
 
+const apiCall = async (endpoint, options = {}) => {
+    if (!API_BASE_URL) throw new Error("API base URL is not defined.");
+
+    const token = localStorage.getItem("access_token");
+    const headers = {
+        "Content-Type": "application/json",
+        ...options.headers,
+    };
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    const config = {
+        ...options,
+        headers,
+    };
+
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || err.error || `HTTP error! status: ${response.status}`);
+    }
+
+    // Handles scenarios like 204 No Content
+    return response.status === 204 ? null : await response.json();
+};
+
 const mockUser = {
     id: 1,
     name: "Demo User",
@@ -68,6 +93,55 @@ export const TutorAPI = {
     createProfile: async (profile) => {
         await delay(500);
         return { message: "Profile created", profile: { id: 999, ...profile } };
+    },
+    getAvailability: async () => {
+        if (API_BASE_URL) {
+            const token = localStorage.getItem("access_token");
+            const response = await fetch(`${API_BASE_URL}/api/tutors/availability`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+            });
+
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                throw new Error(data.error || "Failed to fetch availability");
+            }
+
+            return data;
+        }
+
+        // Fallback for mocked mode
+        await delay(400);
+        return [];
+    },
+    updateAvailability: async (availability) => {
+        if (API_BASE_URL) {
+            const token = localStorage.getItem("access_token");
+            const response = await fetch(`${API_BASE_URL}/api/tutors/availability`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify(availability),
+            });
+
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                throw new Error(data.error || "Failed to update availability");
+            }
+
+            return data;
+        }
+
+        // Fallback for mocked mode
+        await delay(400);
+        return { message: "Availability updated successfully" };
     }
 };
 
@@ -123,32 +197,100 @@ export const MatchesAPI = {
         const matchedTutor = mockTutors.find((tutor) =>
             tutor.subjects.some((entry) => entry.toLowerCase().includes(normalizedSubject))
         );
-
         if (!matchedTutor) {
-            throw new Error("No suitable tutor found");
+            return { message: "No tutor found for the selected subject." };
         }
-
-        const mockMatch = {
-            id: Date.now(),
-            tutorName: matchedTutor.name,
-            subject,
-            date: new Date().toISOString().split("T")[0],
-            status: "upcoming",
-        };
-
-        mockSessions.push(mockMatch);
-
-        return {
-            message: "Match created",
-            tutor_id: matchedTutor.id,
-            match_id: mockMatch.id,
-            probability: 0.91,
-            same_university: false,
-        };
+        return { message: "Match successful!", tutor: matchedTutor };
     },
     getMySessions: async () => {
         await delay(400);
         return mockSessions;
+    },
+    getSessions: async (status = '') => {
+        try {
+            return await apiCall(`/api/sessions/?status=${status}`);
+        } catch (error) {
+            console.warn("Fallback to mock for getSessions:", error.message);
+            await delay(400);
+            return status ? mockSessions.filter(s => s.status === status) : mockSessions;
+        }
+    },
+    acceptSession: async (id) => {
+        return await apiCall(`/api/sessions/${id}/accept`, { method: "POST" });
+    },
+    rejectSession: async (id) => {
+        return await apiCall(`/api/sessions/${id}/reject`, { method: "POST" });
+    }
+};
+
+export const MessagesAPI = {
+    getInbox: async () => {
+        if (API_BASE_URL) {
+            const token = localStorage.getItem("access_token");
+            const response = await fetch(`${API_BASE_URL}/api/messages/inbox`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                }
+            });
+            if (!response.ok) throw new Error("Failed to fetch inbox");
+            return response.status === 204 ? [] : await response.json();
+        }
+        await delay(400);
+        return [];
+    },
+    getThread: async (userId) => {
+        if (API_BASE_URL) {
+            const token = localStorage.getItem("access_token");
+            const response = await fetch(`${API_BASE_URL}/api/messages/thread/${userId}`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                }
+            });
+            if (!response.ok) throw new Error("Failed to fetch thread");
+            return response.status === 204 ? [] : await response.json();
+        }
+        await delay(400);
+        return [];
+    },
+    sendMessage: async (receiverId, content) => {
+        if (API_BASE_URL) {
+            const token = localStorage.getItem("access_token");
+            const response = await fetch(`${API_BASE_URL}/api/messages/send`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({ receiver_id: receiverId, content }),
+            });
+            if (!response.ok) throw new Error("Failed to send message");
+            return await response.json();
+        }
+        await delay(300);
+        return { message: "Message sent mock" };
+    }
+};
+
+export const NotificationsAPI = {
+    getNotifications: async () => {
+        try {
+            return await apiCall(`/api/notifications/`);
+        } catch (error) {
+            console.warn("Fallback to mock for getNotifications:", error.message);
+            return []; // Mock fallback
+        }
+    },
+    markAsRead: async (id) => {
+        try {
+            return await apiCall(`/api/notifications/${id}/read`, { method: "PUT" });
+        } catch (error) {
+            console.warn("Fallback to mock for markAsRead:", error.message);
+            return { message: "Marked as read (mock)" };
+        }
     }
 };
 

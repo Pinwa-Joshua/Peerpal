@@ -1,15 +1,5 @@
-import { useState } from "react";
-
-/* ─── mock requests ─── */
-const REQUESTS = [
-    { id: 1, student: "Thando Khumalo", initials: "TK", gradient: "from-cyan-500 to-blue-600", university: "University of Cape Town", year: "2nd Year", subject: "Statistics 101", date: "Mon, 17 Mar", time: "11:00 AM – 12:00 PM", format: "online", message: "Hi! I'm struggling with hypothesis testing and p-values. Would love some help before my test next week.", status: "pending" },
-    { id: 2, student: "Zara Pillay", initials: "ZP", gradient: "from-amber-500 to-orange-500", university: "University of Cape Town", year: "1st Year", subject: "Chemistry 101", date: "Tue, 18 Mar", time: "3:00 PM – 4:30 PM", format: "in-person", message: "Need help with stoichiometry and balancing equations. I have my tutorial sheet ready.", status: "pending" },
-    { id: 3, student: "Mandla S.", initials: "MS", gradient: "from-violet-500 to-purple-600", university: "Stellenbosch University", year: "3rd Year", subject: "Data Structures", date: "Wed, 19 Mar", time: "2:00 PM – 3:00 PM", format: "online", message: "Can we go over binary search trees and AVL trees? Exam in 2 weeks.", status: "pending" },
-    { id: 4, student: "Lerato M.", initials: "LM", gradient: "from-pink-500 to-rose-600", university: "University of Cape Town", year: "2nd Year", subject: "Calculus II", date: "Fri, 14 Mar", time: "3:00 PM – 4:00 PM", format: "online", message: "Integration by parts revision.", status: "accepted" },
-    { id: 5, student: "David N.", initials: "DN", gradient: "from-blue-500 to-indigo-600", university: "University of the Witwatersrand", year: "1st Year", subject: "Physics I", date: "Thu, 13 Mar", time: "10:00 AM – 11:30 AM", format: "in-person", message: "Newton's laws and free body diagrams.", status: "accepted" },
-    { id: 6, student: "Nomsa B.", initials: "NB", gradient: "from-emerald-500 to-teal-600", university: "University of Pretoria", year: "2nd Year", subject: "Linear Algebra", date: "Mon, 10 Mar", time: "11:00 AM – 12:00 PM", format: "online", message: "Can you help with eigenvalues?", status: "declined", declineReason: "Schedule conflict with exam prep." },
-    { id: 7, student: "Yusuf A.", initials: "YA", gradient: "from-red-500 to-pink-600", university: "University of Johannesburg", year: "1st Year", subject: "Economics 101", date: "Sat, 8 Mar", time: "9:00 AM – 10:00 AM", format: "online", message: "Supply and demand curves.", status: "declined", declineReason: "Subject outside my expertise." },
-];
+import { useState, useEffect } from "react";
+import { MatchesAPI } from "../../services/api";
 
 const TABS = ["pending", "accepted", "declined"];
 
@@ -23,13 +13,57 @@ export default function SessionRequests() {
     const [activeTab, setActiveTab] = useState("pending");
     const [declineModal, setDeclineModal] = useState(null); // request id
     const [declineReason, setDeclineReason] = useState("");
+    const [requests, setRequests] = useState([]);
 
-    const filtered = REQUESTS.filter((r) => r.status === activeTab);
+    const fetchRequests = async () => {
+        try {
+            const data = await MatchesAPI.getSessions();
+            const mapped = data.map((r) => ({
+                id: r.id,
+                student: r.tuteeName || "Unknown Student",
+                initials: r.tuteeName ? r.tuteeName.charAt(0).toUpperCase() : "U",
+                gradient: r.gradient || "from-cyan-500 to-blue-600",
+                university: r.university || "University",
+                year: r.year || "N/A",
+                subject: r.subject || r.topic || "Unknown Subject",
+                date: r.date || "TBD",
+                time: r.time || "TBD",
+                format: r.format || "online",
+                message: r.message || "No message provided.",
+                status: r.status || "pending",
+                declineReason: r.rejectReason || r.declineReason || undefined,
+            }));
+            setRequests(mapped);
+        } catch (error) {
+            console.error("Failed to fetch sessions:", error);
+        }
+    };
 
-    const handleDecline = () => {
-        // TODO: persist decline with reason
-        setDeclineModal(null);
-        setDeclineReason("");
+    useEffect(() => {
+        fetchRequests();
+    }, []);
+
+    const filtered = requests.filter((r) => r.status === activeTab);
+
+    const handleDecline = async () => {
+        try {
+            await MatchesAPI.rejectSession(declineModal);
+            fetchRequests();
+        } catch (error) {
+            console.error("Failed to decline session:", error);
+        } finally {
+            setDeclineModal(null);
+            setDeclineReason("");
+        }
+    };
+
+    const handleAccept = async (id) => {
+        try {
+            await MatchesAPI.acceptSession(id);
+            fetchRequests();
+        } catch (error) {
+            console.error("Failed to accept session:", error);
+        }
     };
 
     return (
@@ -51,8 +85,8 @@ export default function SessionRequests() {
                         key={tab}
                         onClick={() => setActiveTab(tab)}
                         className={`inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-semibold capitalize border-2 transition-all ${activeTab === tab
-                                ? "border-tutor bg-tutor text-white"
-                                : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                            ? "border-tutor bg-tutor text-white"
+                            : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
                             }`}
                     >
                         <span className="material-icons-round text-base">
@@ -60,7 +94,7 @@ export default function SessionRequests() {
                         </span>
                         {tab}
                         <span className="text-xs opacity-70">
-                            ({REQUESTS.filter((r) => r.status === tab).length})
+                            ({requests.filter((r) => r.status === tab).length})
                         </span>
                     </button>
                 ))}
@@ -107,8 +141,8 @@ export default function SessionRequests() {
                                             </span>
                                             <span
                                                 className={`text-xs font-semibold px-2 py-0.5 rounded-full capitalize ${req.format === "online"
-                                                        ? "bg-green-50 text-green-600"
-                                                        : "bg-orange-50 text-orange-600"
+                                                    ? "bg-green-50 text-green-600"
+                                                    : "bg-orange-50 text-orange-600"
                                                     }`}
                                             >
                                                 {req.format}
@@ -134,7 +168,10 @@ export default function SessionRequests() {
                                 <div className="flex items-center gap-2 flex-shrink-0 sm:flex-col sm:items-end">
                                     {req.status === "pending" && (
                                         <>
-                                            <button className="inline-flex items-center gap-1.5 bg-tutor hover:bg-teal-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-sm transition">
+                                            <button
+                                                onClick={() => handleAccept(req.id)}
+                                                className="inline-flex items-center gap-1.5 bg-tutor hover:bg-teal-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-sm transition"
+                                            >
                                                 <span className="material-icons-round text-base">
                                                     check
                                                 </span>
