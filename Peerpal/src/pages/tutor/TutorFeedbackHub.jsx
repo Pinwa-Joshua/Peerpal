@@ -23,9 +23,9 @@ export default function TutorFeedbackHub() {
                     tutor: s.feedback_status !== "pending" 
                 },
                 subject: s.subject || "Subject",
-                student: s.tutee_name || `Student ${s.tutee_id}`,
+                student: s.tuteeName || s.tutee_name || s.partner_name || "Unknown Student",
                 topic: "Session",
-                date: new Date(s.date).toLocaleDateString()
+                date: s.date ? new Date(s.date).toLocaleDateString() : "TBD"
             };
         });
         setCompletedSessions(completed);

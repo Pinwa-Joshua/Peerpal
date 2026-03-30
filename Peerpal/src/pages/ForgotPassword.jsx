@@ -1,12 +1,43 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { AuthAPI } from "../services/api";
 
 export default function ForgotPassword() {
+    const [email, setEmail] = useState("");
     const [submitted, setSubmitted] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState("");
+    const [resetLink, setResetLink] = useState("");
+    const [successMessage, setSuccessMessage] = useState("");
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError("");
+        setSuccessMessage("");
+        setIsSubmitting(true);
+
+        try {
+            const response = await AuthAPI.forgotPassword(email);
+            setResetLink(response?.reset_link || "");
+            setSuccessMessage(response?.message || "Reset request processed successfully.");
+            setSubmitted(true);
+        } catch (submitError) {
+            console.error("Failed to request password reset", submitError);
+            const message = submitError.message || "Unable to process reset request.";
+            if (message.includes("404")) {
+                setError("Password reset route is not available yet. Restart the backend server on port 5000 and try again.");
+            } else if (message === "Failed to fetch") {
+                setError("Cannot reach the server. Make sure the backend is running on port 5000.");
+            } else {
+                setError(message);
+            }
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     return (
         <div className="min-h-screen bg-bg-light flex flex-col">
-            {/* Top bar */}
             <nav className="bg-white/90 backdrop-blur-md border-b border-gray-100">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center h-20">
                     <Link to="/" className="flex items-center gap-2 group">
@@ -18,14 +49,11 @@ export default function ForgotPassword() {
                 </div>
             </nav>
 
-            {/* Content */}
             <main className="flex-1 flex items-center justify-center px-4 py-16">
                 <div className="w-full max-w-md">
-                    {/* Card */}
                     <div className="bg-white rounded-2xl shadow-soft border border-gray-100 p-8 sm:p-10">
                         {!submitted ? (
                             <>
-                                {/* Icon */}
                                 <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mb-6 mx-auto">
                                     <span className="material-icons-round text-3xl text-primary">
                                         lock_reset
@@ -36,17 +64,16 @@ export default function ForgotPassword() {
                                     Forgot your password?
                                 </h1>
                                 <p className="text-gray-500 text-center mb-8 text-sm leading-relaxed">
-                                    No worries! Enter the email address linked to your account and
-                                    we'll send you a reset link.
+                                    Enter the email linked to your account and we&apos;ll generate a reset link for you.
                                 </p>
 
-                                <form
-                                    className="space-y-5"
-                                    onSubmit={(e) => {
-                                        e.preventDefault();
-                                        setSubmitted(true);
-                                    }}
-                                >
+                                {error && (
+                                    <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
+                                        {error}
+                                    </div>
+                                )}
+
+                                <form className="space-y-5" onSubmit={handleSubmit}>
                                     <div>
                                         <label
                                             htmlFor="email"
@@ -62,6 +89,8 @@ export default function ForgotPassword() {
                                                 id="email"
                                                 type="email"
                                                 required
+                                                value={email}
+                                                onChange={(e) => setEmail(e.target.value)}
                                                 placeholder="you@university.ac.za"
                                                 className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
                                             />
@@ -70,14 +99,14 @@ export default function ForgotPassword() {
 
                                     <button
                                         type="submit"
-                                        className="w-full bg-primary hover:bg-blue-800 text-white font-semibold py-3.5 rounded-full shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5"
+                                        disabled={isSubmitting}
+                                        className="w-full bg-primary hover:bg-blue-800 text-white font-semibold py-3.5 rounded-full shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 disabled:opacity-60 disabled:hover:translate-y-0"
                                     >
-                                        Send Reset Link
+                                        {isSubmitting ? "Generating link..." : "Send Reset Link"}
                                     </button>
                                 </form>
                             </>
                         ) : (
-                            /* Success state */
                             <div className="text-center py-4">
                                 <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center mb-6 mx-auto">
                                     <span className="material-icons-round text-3xl text-green-500">
@@ -86,24 +115,40 @@ export default function ForgotPassword() {
                                 </div>
 
                                 <h2 className="text-2xl font-display font-extrabold text-gray-900 mb-2">
-                                    Check your inbox
+                                    Reset link ready
                                 </h2>
-                                <p className="text-gray-500 text-sm leading-relaxed mb-8">
-                                    We've sent a password reset link to your email. Click the link
-                                    to create a new password.
+                                <p className="text-gray-500 text-sm leading-relaxed mb-6">
+                                    {successMessage || "Your password reset request has been processed. Use the link below to create a new password."}
                                 </p>
 
+                                {resetLink && (
+                                    <div className="rounded-xl bg-blue-50 border border-blue-100 p-4 text-left mb-6">
+                                        <p className="text-xs font-semibold text-blue-700 uppercase mb-2">
+                                            Reset Link
+                                        </p>
+                                        <a
+                                            href={resetLink}
+                                            className="text-sm text-primary break-all underline"
+                                        >
+                                            {resetLink}
+                                        </a>
+                                    </div>
+                                )}
+
                                 <button
-                                    onClick={() => setSubmitted(false)}
+                                    onClick={() => {
+                                        setSubmitted(false);
+                                        setResetLink("");
+                                        setSuccessMessage("");
+                                    }}
                                     className="text-primary font-semibold text-sm hover:underline inline-flex items-center gap-1"
                                 >
                                     <span className="material-icons-round text-lg">refresh</span>
-                                    Didn't receive it? Resend
+                                    Request another link
                                 </button>
                             </div>
                         )}
 
-                        {/* Back to login */}
                         <div className="mt-8 pt-6 border-t border-gray-100 text-center">
                             <Link
                                 to="/login"

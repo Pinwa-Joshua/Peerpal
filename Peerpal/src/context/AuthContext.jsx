@@ -2,6 +2,29 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { AuthAPI } from '../services/api';
 
 const AuthContext = createContext(null);
+const PROFILE_STORAGE_PREFIX = 'peerpal_profile_';
+
+const mergeStoredProfile = (userData) => {
+    if (!userData?.id) return userData;
+
+    try {
+        const stored = localStorage.getItem(`${PROFILE_STORAGE_PREFIX}${userData.id}`);
+        if (!stored) return userData;
+
+        const parsed = JSON.parse(stored);
+        return {
+            ...userData,
+            ...parsed,
+            id: userData.id,
+            email: userData.email,
+            full_name: userData.full_name ?? parsed.full_name,
+            role: userData.role,
+        };
+    } catch (error) {
+        console.error("Failed to read stored profile", error);
+        return userData;
+    }
+};
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
@@ -13,7 +36,7 @@ export const AuthProvider = ({ children }) => {
             if (token) {
                 try {
                     const userData = await AuthAPI.getMe();
-                    setUser(userData);
+                    setUser(mergeStoredProfile(userData));
                 } catch (error) {
                     console.error("Token invalid or expired", error);
                     localStorage.removeItem('access_token');
@@ -25,11 +48,13 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     const login = async (email, password, role) => {
+        setUser(null);
         const response = await AuthAPI.login({ email, password, role });
         localStorage.setItem('access_token', response.access_token);
         const userData = await AuthAPI.getMe();
-        setUser(userData);
-        return userData;
+        const mergedUser = mergeStoredProfile(userData);
+        setUser(mergedUser);
+        return mergedUser;
     };
 
     const logout = () => {
@@ -39,8 +64,9 @@ export const AuthProvider = ({ children }) => {
 
     const refreshUser = async () => {
         const userData = await AuthAPI.getMe();
-        setUser(userData);
-        return userData;
+        const mergedUser = mergeStoredProfile(userData);
+        setUser(mergedUser);
+        return mergedUser;
     };
 
     return (

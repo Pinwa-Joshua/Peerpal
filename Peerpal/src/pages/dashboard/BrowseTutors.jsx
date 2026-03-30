@@ -1,4 +1,5 @@
 import { useDeferredValue, useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { TutorAPI, MatchesAPI } from "../../services/api";
 import { StarsDisplay } from "../../components/feedback/FeedbackWidgets";
 
@@ -53,7 +54,11 @@ export default function BrowseTutors() {
     const fetchTutors = async () => {
       try {
         const data = await TutorAPI.getTutors();
-        setTutors(Array.isArray(data) ? data : []);
+        const formattedData = (Array.isArray(data) ? data : []).map(t => ({
+          ...t,
+          subjects: typeof t.subjects === 'string' ? t.subjects.split(',').map(s => s.trim()) : (t.subjects || [])
+        }));
+        setTutors(formattedData);
       } catch (err) {
         console.error("Failed to fetch tutors", err);
       } finally {
@@ -101,7 +106,7 @@ export default function BrowseTutors() {
 
   let results = tutors
     .map((tutor) => {
-      const subjects = tutor.subjects || [];
+      const subjects = typeof tutor.subjects === 'string' ? tutor.subjects.split(',').map(s=>s.trim()) : (tutor.subjects || []);
       const searchable = `${tutor.name} ${tutor.bio} ${subjects.join(" ")} ${tutor.university}`.toLowerCase();
 
       let relevance = 25 + (tutor.rating || 0) * 8 + (tutor.reviews || 0) * 0.8;
@@ -330,12 +335,18 @@ export default function BrowseTutors() {
                     </div>
 
                     <div className="mt-5 space-y-3">
-                      <button className="w-full rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800">
+                      <Link
+                        to={`/dashboard/tutors/${tutor.id}?request=1`}
+                        className="block w-full rounded-2xl bg-primary px-5 py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"
+                      >
                         Request Session
-                      </button>
-                      <button className="w-full rounded-2xl border-2 border-primary px-5 py-3 text-sm font-semibold text-primary transition hover:bg-blue-50">
+                      </Link>
+                      <Link
+                        to={`/dashboard/tutors/${tutor.id}`}
+                        className="block w-full rounded-2xl border-2 border-primary px-5 py-3 text-center text-sm font-semibold text-primary transition hover:bg-blue-50"
+                      >
                         View Profile
-                      </button>
+                      </Link>
                     </div>
                   </div>
                 </div>

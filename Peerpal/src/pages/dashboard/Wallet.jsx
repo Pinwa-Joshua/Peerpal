@@ -28,9 +28,9 @@ const STATUS_STYLES = {
 
 export default function Wallet() {
     const [activeFilter, setActiveFilter] = useState("all");
-    const [balance, setBalance] = useState(MOCK_BALANCE);
-    const [transactions, setTransactions] = useState(MOCK_TRANSACTIONS);
-    const [paymentMethods, setPaymentMethods] = useState(MOCK_PAYMENT_METHODS);
+    const [balance, setBalance] = useState({ available: 0, totalSpent: 0 });
+    const [transactions, setTransactions] = useState([]);
+    const [paymentMethods, setPaymentMethods] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {

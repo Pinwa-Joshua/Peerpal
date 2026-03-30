@@ -1,57 +1,95 @@
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { UsersAPI } from "../../services/api";
 
 const TABS = ["Profile", "Preferences", "Security", "Notifications"];
-
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const PROFILE_STORAGE_PREFIX = "peerpal_profile_";
+const PASSWORD_PLACEHOLDER = "********";
+
+const YEAR_OPTIONS = [
+    "1st Year",
+    "2nd Year",
+    "3rd Year",
+    "4th Year",
+    "5th Year",
+    "6th Year",
+    "Postgraduate",
+];
+
+const mapUserToProfile = (user) => ({
+    photo: user?.photo || "",
+    displayName: user?.full_name || user?.displayName || user?.name || "",
+    email: user?.email || "",
+    bio: user?.bio || "",
+    university: user?.university || "",
+    campus: user?.campus || "",
+    year: user?.year || YEAR_OPTIONS[0],
+    faculty: user?.faculty || "",
+});
+
+const mapUserToPrefs = (user) => ({
+    format: user?.preferred_format || "both",
+    days: Array.isArray(user?.preferred_days) && user.preferred_days.length > 0 ? user.preferred_days : ["Mon", "Wed", "Fri"],
+    budgetMin: user?.budget_min || "50",
+    budgetMax: user?.budget_max || "200",
+});
 
 export default function Settings() {
     const { user, refreshUser } = useAuth();
     const [activeTab, setActiveTab] = useState("Profile");
     const fileRef = useRef(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+    const [error, setError] = useState("");
 
-    /* profile state */
     const [profile, setProfile] = useState({
         photo: "",
         displayName: "",
+        email: "",
         bio: "",
         university: "",
         campus: "",
-        year: "",
+        year: YEAR_OPTIONS[0],
         faculty: "",
     });
 
     useEffect(() => {
-        if (user) {
-            setProfile({
-                photo: user.photo || "",
-                displayName: user.displayName || user.name || "",
-                bio: user.bio || "",
-                university: user.university || "",
-                campus: user.campus || "",
-                year: user.year || "",
-                faculty: user.faculty || "",
-            });
-        }
+        if (!user) return;
+        setProfile(mapUserToProfile(user));
+        setPrefs(mapUserToPrefs(user));
     }, [user]);
 
     const handleSaveProfile = async () => {
+        if (!user?.id) return;
+
         setIsSaving(true);
+        setSaved(false);
+        setError("");
+
         try {
-            await UsersAPI.updateProfile(profile);
+            await UsersAPI.updateProfile({
+                full_name: profile.displayName.trim(),
+                photo: profile.photo,
+                bio: profile.bio.trim(),
+                university: profile.university.trim(),
+                campus: profile.campus.trim(),
+                year: profile.year,
+                faculty: profile.faculty.trim(),
+            });
+
             await refreshUser();
-            alert("Profile updated successfully!");
-        } catch (error) {
-            console.error("Failed to update profile", error);
-            alert("Error updating profile.");
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+        } catch (saveError) {
+            console.error("Failed to update profile", saveError);
+            setError(saveError.message || "Error updating profile.");
         } finally {
             setIsSaving(false);
         }
     };
 
-    /* preferences state */
     const [prefs, setPrefs] = useState({
         format: "both",
         days: ["Mon", "Wed", "Fri"],
@@ -59,7 +97,6 @@ export default function Settings() {
         budgetMax: "200",
     });
 
-    /* security state */
     const [passwords, setPasswords] = useState({
         current: "",
         newPw: "",
@@ -67,7 +104,6 @@ export default function Settings() {
     });
     const [showPasswords, setShowPasswords] = useState(false);
 
-    /* notifications state */
     const [notifs, setNotifs] = useState({
         sessionReminders: true,
         newMessages: true,
@@ -94,6 +130,31 @@ export default function Settings() {
         }));
     };
 
+    const handleSavePreferences = async () => {
+        if (!user?.id) return;
+
+        setIsSaving(true);
+        setSaved(false);
+        setError("");
+
+        try {
+            await UsersAPI.updateProfile({
+                preferred_format: prefs.format,
+                preferred_days: prefs.days,
+                budget_min: prefs.budgetMin,
+                budget_max: prefs.budgetMax,
+            });
+            await refreshUser();
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+        } catch (saveError) {
+            console.error("Failed to update preferences", saveError);
+            setError(saveError.message || "Error updating preferences.");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     const formats = [
         { id: "online", icon: "videocam", label: "Online" },
         { id: "in-person", icon: "location_on", label: "In-Person" },
@@ -102,7 +163,6 @@ export default function Settings() {
 
     return (
         <div className="max-w-4xl mx-auto space-y-6">
-            {/* Header */}
             <div>
                 <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-gray-900">
                     Settings
@@ -112,26 +172,38 @@ export default function Settings() {
                 </p>
             </div>
 
-            {/* Tabs */}
+            {saved && (
+                <div className="flex items-center gap-2 bg-green-50 text-green-700 rounded-xl p-3 text-sm font-medium">
+                    <span className="material-icons-round text-lg">check_circle</span>
+                    Profile updated successfully.
+                </div>
+            )}
+
+            {error && (
+                <div className="flex items-center gap-2 bg-red-50 text-red-700 rounded-xl p-3 text-sm font-medium">
+                    <span className="material-icons-round text-lg">error</span>
+                    {error}
+                </div>
+            )}
+
             <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
                 {TABS.map((tab) => (
                     <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                        className={`px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap border-2 transition-all ${activeTab === tab
-                            ? "border-primary bg-primary text-white"
-                            : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-                            }`}
+                        className={`px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap border-2 transition-all ${
+                            activeTab === tab
+                                ? "border-primary bg-primary text-white"
+                                : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                        }`}
                     >
                         {tab}
                     </button>
                 ))}
             </div>
 
-            {/* ── Profile ── */}
             {activeTab === "Profile" && (
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-soft p-6 sm:p-8 space-y-6">
-                    {/* Photo */}
                     <div className="flex items-center gap-5">
                         <button
                             type="button"
@@ -172,7 +244,6 @@ export default function Settings() {
                         </div>
                     </div>
 
-                    {/* Fields */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-1.5">
@@ -187,6 +258,17 @@ export default function Settings() {
                                     }))
                                 }
                                 className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                                Email
+                            </label>
+                            <input
+                                type="email"
+                                value={profile.email}
+                                disabled
+                                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-400"
                             />
                         </div>
                         <div>
@@ -233,13 +315,11 @@ export default function Settings() {
                                 }
                                 className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition appearance-none"
                             >
-                                <option>1st Year</option>
-                                <option>2nd Year</option>
-                                <option>3rd Year</option>
-                                <option>4th Year</option>
-                                <option>5th Year</option>
-                                <option>6th Year</option>
-                                <option>Postgraduate</option>
+                                {YEAR_OPTIONS.map((year) => (
+                                    <option key={year} value={year}>
+                                        {year}
+                                    </option>
+                                ))}
                             </select>
                         </div>
                         <div>
@@ -259,7 +339,6 @@ export default function Settings() {
                         </div>
                     </div>
 
-                    {/* Bio */}
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-1.5">
                             Bio
@@ -284,16 +363,33 @@ export default function Settings() {
                     <button
                         onClick={handleSaveProfile}
                         disabled={isSaving}
-                        className="bg-primary hover:bg-blue-800 text-white font-semibold py-3 px-8 rounded-full shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 disabled:opacity-50">
+                        className="bg-primary hover:bg-blue-800 text-white font-semibold py-3 px-8 rounded-full shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 disabled:opacity-50"
+                    >
                         {isSaving ? "Saving..." : "Save Changes"}
                     </button>
+
+                    {user?.role !== "tutor" && (
+                        <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-5">
+                            <p className="text-sm font-semibold text-emerald-800">
+                                Ready to tutor other students too?
+                            </p>
+                            <p className="mt-1 text-sm text-emerald-700">
+                                Start tutor onboarding from your student account and unlock tutor access when you finish.
+                            </p>
+                            <Link
+                                to="/onboarding/tutor/quiz"
+                                className="mt-4 inline-flex items-center gap-2 rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                            >
+                                <span className="material-icons-round text-lg">school</span>
+                                Become a Tutor
+                            </Link>
+                        </div>
+                    )}
                 </div>
             )}
 
-            {/* ── Preferences ── */}
             {activeTab === "Preferences" && (
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-soft p-6 sm:p-8 space-y-7">
-                    {/* Session format */}
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-3">
                             Session Format
@@ -311,24 +407,23 @@ export default function Settings() {
                                                 format: f.id,
                                             }))
                                         }
-                                        className={`flex flex-col items-center gap-2 py-4 rounded-xl border-2 transition-all ${active
-                                            ? "border-primary bg-blue-50"
-                                            : "border-gray-200 bg-white hover:border-gray-300"
-                                            }`}
+                                        className={`flex flex-col items-center gap-2 py-4 rounded-xl border-2 transition-all ${
+                                            active
+                                                ? "border-primary bg-blue-50"
+                                                : "border-gray-200 bg-white hover:border-gray-300"
+                                        }`}
                                     >
                                         <span
-                                            className={`material-icons-round text-2xl ${active
-                                                ? "text-primary"
-                                                : "text-gray-400"
-                                                }`}
+                                            className={`material-icons-round text-2xl ${
+                                                active ? "text-primary" : "text-gray-400"
+                                            }`}
                                         >
                                             {f.icon}
                                         </span>
                                         <span
-                                            className={`text-sm font-semibold ${active
-                                                ? "text-primary"
-                                                : "text-gray-600"
-                                                }`}
+                                            className={`text-sm font-semibold ${
+                                                active ? "text-primary" : "text-gray-600"
+                                            }`}
                                         >
                                             {f.label}
                                         </span>
@@ -338,7 +433,6 @@ export default function Settings() {
                         </div>
                     </div>
 
-                    {/* Preferred days */}
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-3">
                             Preferred Days
@@ -351,10 +445,11 @@ export default function Settings() {
                                         key={day}
                                         type="button"
                                         onClick={() => toggleDay(day)}
-                                        className={`px-4 py-2 rounded-full text-sm font-semibold border-2 transition-all ${active
-                                            ? "border-primary bg-primary text-white"
-                                            : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-                                            }`}
+                                        className={`px-4 py-2 rounded-full text-sm font-semibold border-2 transition-all ${
+                                            active
+                                                ? "border-primary bg-primary text-white"
+                                                : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                                        }`}
                                     >
                                         {day}
                                     </button>
@@ -363,7 +458,6 @@ export default function Settings() {
                         </div>
                     </div>
 
-                    {/* Budget */}
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-3">
                             Budget per Hour (R)
@@ -406,73 +500,65 @@ export default function Settings() {
                         </div>
                     </div>
 
-                    <button className="bg-primary hover:bg-blue-800 text-white font-semibold py-3 px-8 rounded-full shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5">
-                        Save Preferences
+                    <button
+                        onClick={handleSavePreferences}
+                        disabled={isSaving}
+                        className="bg-primary hover:bg-blue-800 text-white font-semibold py-3 px-8 rounded-full shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 disabled:opacity-50"
+                    >
+                        {isSaving ? "Saving..." : "Save Preferences"}
                     </button>
                 </div>
             )}
 
-            {/* ── Security ── */}
             {activeTab === "Security" && (
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-soft p-6 sm:p-8 space-y-5">
                     <h3 className="font-display font-bold text-gray-900">
                         Change Password
                     </h3>
-                    {["Current Password", "New Password", "Confirm New Password"].map(
-                        (label, i) => {
-                            const key = ["current", "newPw", "confirm"][i];
-                            return (
-                                <div key={label}>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                                        {label}
-                                    </label>
-                                    <div className="relative">
-                                        <span className="material-icons-round absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">
-                                            lock
-                                        </span>
-                                        <input
-                                            type={
-                                                showPasswords
-                                                    ? "text"
-                                                    : "password"
-                                            }
-                                            value={passwords[key]}
-                                            onChange={(e) =>
-                                                setPasswords((p) => ({
-                                                    ...p,
-                                                    [key]: e.target.value,
-                                                }))
-                                            }
-                                            placeholder="••••••••"
-                                            className="w-full pl-11 pr-12 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
-                                        />
-                                        {i === 0 && (
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    setShowPasswords(!showPasswords)
-                                                }
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
-                                            >
-                                                <span className="material-icons-round text-xl">
-                                                    {showPasswords
-                                                        ? "visibility_off"
-                                                        : "visibility"}
-                                                </span>
-                                            </button>
-                                        )}
-                                    </div>
+                    {["Current Password", "New Password", "Confirm New Password"].map((label, i) => {
+                        const key = ["current", "newPw", "confirm"][i];
+                        return (
+                            <div key={label}>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                                    {label}
+                                </label>
+                                <div className="relative">
+                                    <span className="material-icons-round absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">
+                                        lock
+                                    </span>
+                                    <input
+                                        type={showPasswords ? "text" : "password"}
+                                        value={passwords[key]}
+                                        onChange={(e) =>
+                                            setPasswords((p) => ({
+                                                ...p,
+                                                [key]: e.target.value,
+                                            }))
+                                        }
+                                        placeholder={PASSWORD_PLACEHOLDER}
+                                        className="w-full pl-11 pr-12 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
+                                    />
+                                    {i === 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPasswords(!showPasswords)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+                                        >
+                                            <span className="material-icons-round text-xl">
+                                                {showPasswords ? "visibility_off" : "visibility"}
+                                            </span>
+                                        </button>
+                                    )}
                                 </div>
-                            );
-                        }
-                    )}
+                            </div>
+                        );
+                    })}
                     <button className="bg-primary hover:bg-blue-800 text-white font-semibold py-3 px-8 rounded-full shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5">
                         Update Password
                     </button>
                 </div>
             )}
 
-            {/* ── Notifications ── */}
             {activeTab === "Notifications" && (
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-soft p-6 sm:p-8 space-y-1">
                     {[
@@ -502,16 +588,14 @@ export default function Settings() {
                                         [item.key]: !n[item.key],
                                     }))
                                 }
-                                className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${notifs[item.key]
-                                    ? "bg-primary"
-                                    : "bg-gray-300"
-                                    }`}
+                                className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${
+                                    notifs[item.key] ? "bg-primary" : "bg-gray-300"
+                                }`}
                             >
                                 <span
-                                    className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${notifs[item.key]
-                                        ? "translate-x-[22px]"
-                                        : "translate-x-0.5"
-                                        }`}
+                                    className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${
+                                        notifs[item.key] ? "translate-x-[22px]" : "translate-x-0.5"
+                                    }`}
                                 />
                             </button>
                         </div>

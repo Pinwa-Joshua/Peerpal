@@ -1,31 +1,93 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-
-import {
-  FeedbackStatusPill,
-} from "../../components/feedback/FeedbackWidgets";
+import { FeedbackStatusPill } from "../../components/feedback/FeedbackWidgets";
 import {
   createEmptyRatings,
   LEARNER_RATING_FIELDS,
   SessionRatingForm,
   SessionRatingSummary,
 } from "../../components/feedback/SessionRating";
+import { MatchesAPI } from "../../services/api";
 
 const STATUS_CFG = {
-  confirmed: { bg: "bg-green-50", text: "text-green-700", dot: "bg-green-500", label: "Confirmed" },
+  accepted: { bg: "bg-green-50", text: "text-green-700", dot: "bg-green-500", label: "Confirmed" },
   pending: { bg: "bg-yellow-50", text: "text-yellow-700", dot: "bg-yellow-500", label: "Pending" },
   completed: { bg: "bg-blue-50", text: "text-primary", dot: "bg-primary", label: "Completed" },
   cancelled: { bg: "bg-red-50", text: "text-red-600", dot: "bg-red-500", label: "Cancelled" },
+  declined: { bg: "bg-red-50", text: "text-red-600", dot: "bg-red-500", label: "Declined" },
 };
+
+const SESSION_GRADIENT = "from-blue-500 to-indigo-600";
 
 export default function SessionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-
-  const session = getSessionByRole("student", Number(id));
+  const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [ratings, setRatings] = useState(createEmptyRatings(LEARNER_RATING_FIELDS));
+  const [submittedFeedback, setSubmittedFeedback] = useState(null);
   const [status, setStatus] = useState({ type: "", message: "" });
   const [showCancel, setShowCancel] = useState(false);
+
+  useEffect(() => {
+    const fetchSession = async () => {
+      try {
+        const sessionsResp = await MatchesAPI.getSessions();
+        const sessions = Array.isArray(sessionsResp) ? sessionsResp : [];
+        const found = sessions.find((item) => String(item.id) === String(id));
+
+        if (!found) {
+          setSession(null);
+          return;
+        }
+
+        const mappedSession = {
+          id: found.id,
+          status: found.status || "pending",
+          chatUserId: found.partner_id,
+          subject: found.subject || "General Session",
+          topic: found.message || "Session details will appear here once confirmed.",
+          tutor: found.partner_name || found.tutor_name || "Tutor",
+          university: found.university || "University not provided",
+          tutorBio: found.message || "No tutor bio available yet.",
+          gradient: SESSION_GRADIENT,
+          initials: (found.partner_name || found.tutor_name || "TU")
+            .split(" ")
+            .map((part) => part[0])
+            .join("")
+            .slice(0, 2)
+            .toUpperCase(),
+          date: found.date || (found.created_at ? new Date(found.created_at).toLocaleDateString() : "TBD"),
+          time: found.time || (found.created_at ? new Date(found.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "TBD"),
+          duration: found.duration || "1 hour",
+          format: found.format || "online",
+          location: found.format === "physical" ? "Physical location to be agreed" : "Meeting link will be shared by the tutor",
+          rate: found.rate || 100,
+          paid: Boolean(found.paid),
+          meetingLink: found.meeting_link || "",
+          notes: found.message || "",
+          feedback: {
+            student: submittedFeedback,
+            tutor: null,
+          },
+          cancelReason: found.rejectReason || "",
+        };
+
+        setSession(mappedSession);
+      } catch (error) {
+        console.error("Failed to load session detail", error);
+        setStatus({ type: "error", message: "Unable to load this session right now." });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSession();
+  }, [id, submittedFeedback]);
+
+  if (loading) {
+    return <div className="max-w-3xl mx-auto py-20 text-center text-gray-500">Loading session...</div>;
+  }
 
   if (!session) {
     return (
@@ -44,28 +106,31 @@ export default function SessionDetail() {
     );
   }
 
-  const st = STATUS_CFG[session.status];
-  const isUpcoming = session.tab === "upcoming";
-  const isCompleted = session.tab === "completed";
-  const isCancelled = session.tab === "cancelled";
-  const studentFeedback = session.feedback.student;
-  const tutorFeedback = session.feedback.tutor;
+  const st = STATUS_CFG[session.status] || STATUS_CFG.pending;
+  const isUpcoming = session.status === "pending" || session.status === "accepted";
+  const isCompleted = session.status === "completed";
+  const isCancelled = session.status === "cancelled" || session.status === "declined";
+  const studentFeedback = submittedFeedback;
+  const tutorFeedback = null;
 
   const handleRate = (key, value) => {
     setRatings((current) => ({ ...current, [key]: value }));
   };
 
   const handleSubmit = () => {
-    try {
-      submitFeedback({
-        sessionId: session.id,
-        role: "student",
-        payload: { ratings },
-      });
-      setStatus({ type: "success", message: "Tutor rating submitted for this session." });
-    } catch (error) {
-      setStatus({ type: "error", message: error.message });
+    const values = Object.values(ratings).filter((value) => value > 0);
+    if (!values.length) {
+      setStatus({ type: "error", message: "Please rate at least one category." });
+      return;
     }
+
+    const overallRating = Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10) / 10;
+    setSubmittedFeedback({
+      ratings,
+      overallRating,
+      submittedAt: new Date().toISOString(),
+    });
+    setStatus({ type: "success", message: "Tutor rating submitted for this session." });
   };
 
   return (
@@ -109,7 +174,7 @@ export default function SessionDetail() {
 
             <div className="flex flex-wrap gap-2 lg:flex-col">
               <Link
-                to="/dashboard/messages"
+                to={session.chatUserId ? `/dashboard/messages?user=${session.chatUserId}&name=${encodeURIComponent(session.tutor)}` : "/dashboard/messages"}
                 className="inline-flex items-center gap-2 rounded-xl border-2 border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-primary hover:text-primary"
               >
                 <span className="material-icons-round text-lg">chat</span>
@@ -135,7 +200,7 @@ export default function SessionDetail() {
           tone={session.format === "online" ? "green" : "orange"}
           label="Format"
           value={session.format}
-          helper={session.location || "Meeting link available in action bar"}
+          helper={session.location}
         />
         <InfoCard
           icon="payments"
@@ -231,7 +296,7 @@ export default function SessionDetail() {
                 </Link>
               )}
               <Link
-                to="/dashboard/messages"
+                to={session.chatUserId ? `/dashboard/messages?user=${session.chatUserId}&name=${encodeURIComponent(session.tutor)}` : "/dashboard/messages"}
                 className="inline-flex items-center justify-center gap-2 rounded-full border-2 border-primary px-6 py-3 text-sm font-semibold text-primary transition hover:bg-blue-50"
               >
                 <span className="material-icons-round text-lg">chat</span>

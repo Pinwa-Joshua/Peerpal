@@ -1,28 +1,37 @@
-/* ─── mock data ─── */
-const SUBJECT_PROGRESS = [
-    { subject: "Calculus II", sessions: 5, confidence: 72, trend: "+12%", trendUp: true },
-    { subject: "Physics I", sessions: 3, confidence: 58, trend: "+8%", trendUp: true },
-    { subject: "Data Structures", sessions: 4, confidence: 85, trend: "+15%", trendUp: true },
-    { subject: "Linear Algebra", sessions: 2, confidence: 45, trend: "+5%", trendUp: true },
-];
-
-const SESSION_HISTORY = [
-    { id: 1, tutor: "Thabo M.", subject: "Calculus II", date: "10 Feb 2026", rating: 5 },
-    { id: 2, tutor: "Zanele D.", subject: "Linear Algebra", date: "3 Feb 2026", rating: 5 },
-    { id: 3, tutor: "James P.", subject: "Data Structures", date: "1 Feb 2026", rating: 4 },
-    { id: 4, tutor: "Naledi K.", subject: "Physics I", date: "28 Jan 2026", rating: 5 },
-    { id: 5, tutor: "Sipho N.", subject: "Data Structures", date: "25 Jan 2026", rating: 4 },
-    { id: 6, tutor: "Amara L.", subject: "Calculus II", date: "20 Jan 2026", rating: 5 },
-];
-
-const STAT_CARDS = [
-    { icon: "trending_up", label: "GPA Boost", value: "+0.5", sub: "Average improvement", color: "bg-green-50 text-green-600" },
-    { icon: "event_available", label: "Sessions", value: "14", sub: "Completed this semester", color: "bg-blue-50 text-primary" },
-    { icon: "schedule", label: "Hours", value: "21", sub: "Total study time", color: "bg-purple-50 text-purple-600" },
-    { icon: "star", label: "Avg Rating", value: "4.8", sub: "Your tutor ratings", color: "bg-yellow-50 text-yellow-600" },
-];
+import { useState, useEffect } from 'react';
+import { ProgressAPI } from '../../services/api';
 
 export default function Progress() {
+    const [subjectProgress, setSubjectProgress] = useState([]);
+    const [sessionHistory, setSessionHistory] = useState([]);
+    const [statCards, setStatCards] = useState([
+        { icon: "trending_up", label: "GPA Boost", value: "0", sub: "Average improvement", color: "bg-green-50 text-green-600" },
+        { icon: "event_available", label: "Sessions", value: "0", sub: "Completed this semester", color: "bg-blue-50 text-primary" },
+        { icon: "schedule", label: "Hours", value: "0", sub: "Total study time", color: "bg-purple-50 text-purple-600" },
+        { icon: "star", label: "Avg Rating", value: "0", sub: "Your tutor ratings", color: "bg-yellow-50 text-yellow-600" },
+    ]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchProgress = async () => {
+            try {
+                const data = await ProgressAPI.getOverview();
+                if (data) {
+                    if (data.subjectProgress) setSubjectProgress(data.subjectProgress);
+                    if (data.sessionHistory) setSessionHistory(data.sessionHistory);
+                    if (data.statCards) setStatCards(data.statCards);
+                }
+            } catch (error) {
+                console.error("Failed to fetch progress", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchProgress();
+    }, []);
+
+    if (loading) return <div className="p-8 text-center text-gray-500">Loading progress...</div>;
+
     return (
         <div className="max-w-7xl mx-auto space-y-8">
             {/* Header */}
@@ -37,7 +46,7 @@ export default function Progress() {
 
             {/* Stat cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                {STAT_CARDS.map((s) => (
+                {statCards.map((s) => (
                     <div
                         key={s.label}
                         className="bg-white rounded-2xl border border-gray-100 shadow-soft p-5"
@@ -63,7 +72,7 @@ export default function Progress() {
                     Subject Confidence
                 </h2>
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-soft divide-y divide-gray-50">
-                    {SUBJECT_PROGRESS.map((sp) => (
+                    {subjectProgress.map((sp) => (
                         <div
                             key={sp.subject}
                             className="flex items-center gap-4 px-5 py-4"
@@ -76,8 +85,8 @@ export default function Progress() {
                                     <div className="flex items-center gap-2 flex-shrink-0">
                                         <span
                                             className={`text-xs font-semibold ${sp.trendUp
-                                                    ? "text-green-600"
-                                                    : "text-red-500"
+                                                ? "text-green-600"
+                                                : "text-red-500"
                                                 }`}
                                         >
                                             {sp.trend}
@@ -116,7 +125,7 @@ export default function Progress() {
                         <span>Rating</span>
                     </div>
                     <div className="divide-y divide-gray-50">
-                        {SESSION_HISTORY.map((s) => (
+                        {sessionHistory.map((s) => (
                             <div
                                 key={s.id}
                                 className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 px-5 py-3.5 text-sm hover:bg-gray-50 transition"
@@ -131,8 +140,8 @@ export default function Progress() {
                                         <span
                                             key={i}
                                             className={`material-icons-round text-sm ${i < s.rating
-                                                    ? "text-accent"
-                                                    : "text-gray-300"
+                                                ? "text-accent"
+                                                : "text-gray-300"
                                                 }`}
                                         >
                                             star

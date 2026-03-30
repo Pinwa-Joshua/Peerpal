@@ -7,7 +7,7 @@ const NAV_ITEMS = [
     { to: "/admin/dashboard", icon: "dashboard", label: "Dashboard", end: true },
     { to: "/admin/dashboard/users", icon: "manage_accounts", label: "User Management" },
     { to: "/admin/dashboard/sessions", icon: "gavel", label: "Sessions & Disputes" },
-    { to: "/admin/dashboard/feedback", icon: "reviews", label: "Feedback Ops" },
+    { to: "/admin/dashboard/feedback", icon: "reviews", label: "Feedback Operations" },
     { to: "/admin/dashboard/payouts", icon: "account_balance", label: "Financials" },
     { to: "/admin/dashboard/settings", icon: "settings_applications", label: "System Config" },
 ];
@@ -16,7 +16,7 @@ export default function AdminDashboardLayout() {
     const [collapsed, setCollapsed] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
     const navigate = useNavigate();
-    const { logout } = useAuth();
+    const { user, logout } = useAuth();
 
     const handleLogout = () => {
         logout();
@@ -66,15 +66,15 @@ export default function AdminDashboardLayout() {
             <div className="flex-shrink-0 border-t border-gray-100 p-3 space-y-2">
                 <div className="flex items-center gap-3 px-3 py-2">
                     <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-700 to-indigo-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                        A
+                        {user?.full_name ? user.full_name.charAt(0).toUpperCase() : 'A'}
                     </div>
                     {(!collapsed || isMobile) && (
                         <div className="min-w-0">
                             <p className="text-sm font-semibold text-gray-900 truncate">
-                                Admin User
+                                {user?.full_name || 'Admin User'}
                             </p>
                             <p className="text-xs text-gray-400 truncate">
-                                admin@peerpal.com
+                                {user?.email || 'admin@peerpal.com'}
                             </p>
                         </div>
                     )}
@@ -165,7 +165,7 @@ export default function AdminDashboardLayout() {
                             to="/admin/dashboard/settings"
                             className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-700 to-indigo-600 flex items-center justify-center text-white text-sm font-bold"
                         >
-                            A
+                            {user?.full_name ? user.full_name.charAt(0).toUpperCase() : 'A'}
                         </Link>
                     </div>
                 </header>

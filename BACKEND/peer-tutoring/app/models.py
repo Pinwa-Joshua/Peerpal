@@ -62,6 +62,7 @@ class Tutor(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, unique=True)
     subjects = db.Column(db.String(255))
     experience_level = db.Column(db.String(50))
+    meeting_mode = db.Column(db.String(20), default="Both")  # 'Online', 'Physical', 'Both'
     # availability removed - now using TimeSlot relationship
     active = db.Column(db.Boolean, default=True)
     verified = db.Column(db.Boolean, default=False)

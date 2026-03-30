@@ -1,45 +1,105 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { MessagesAPI, AuthAPI } from "../../services/api";
+import { useSearchParams } from "react-router-dom";
+import { MessagesAPI } from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
+
+const URL_REGEX = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi;
+
+function renderMessageContent(text) {
+    if (!text) return null;
+
+    const parts = text.split(URL_REGEX);
+    return parts.map((part, index) => {
+        if (!part) return null;
+        if (part.match(URL_REGEX)) {
+            const href = part.startsWith("http") ? part : `https://${part}`;
+            return (
+                <a
+                    key={`${part}-${index}`}
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline break-all"
+                >
+                    {part}
+                </a>
+            );
+        }
+
+        return <span key={`${part}-${index}`}>{part}</span>;
+    });
+}
 
 export default function Messages() {
+    const [searchParams, setSearchParams] = useSearchParams();
     const [activeId, setActiveId] = useState(null);
     const [newMsg, setNewMsg] = useState("");
+    const [attachment, setAttachment] = useState(null);
+    const [selectionMode, setSelectionMode] = useState(false);
+    const [selectedMessageIds, setSelectedMessageIds] = useState([]);
     const [conversations, setConversations] = useState([]);
     const [messages, setMessages] = useState([]);
-    const [currentUser, setCurrentUser] = useState(null);
+    const { user: currentUser } = useAuth();
+    const requestedUserId = searchParams.get("user");
+    const requestedName = searchParams.get("name");
 
     useEffect(() => {
-        AuthAPI.getMe().then(user => setCurrentUser(user)).catch(err => console.error("Could not fetch user", err));
-    }, []);
+        if (!requestedUserId) return;
+        setActiveId(Number(requestedUserId));
+    }, [requestedUserId]);
 
     // Poll inbox contacts on an interval
     useEffect(() => {
+        if (!currentUser) return;
+
         const fetchInbox = async () => {
             try {
                 const inbox = await MessagesAPI.getInbox();
                 if (!Array.isArray(inbox)) return;
-                
+
                 // Group by sender_id to unique conversations
                 const sendersMap = new Map();
                 inbox.forEach(m => {
-                    const sId = m.sender_id || m.senderId || (m.sender && m.sender.id) || "Unknown";
-                    // keep latest message
-                    sendersMap.set(sId, m);
+                    const sId = m.sender_id === currentUser?.id ? m.receiver_id : m.sender_id;
+                    const otherUser = m.sender_id === currentUser?.id ? m.receiver : m.sender;
+                    const id = sId || "Unknown";
+                    // keep latest message or all info
+                    if (!sendersMap.has(id)) {
+                        sendersMap.set(id, { ...m, otherUser });
+                    } else {
+                        const existing = sendersMap.get(id);
+                        if (new Date(m.timestamp) > new Date(existing.timestamp)) {
+                            sendersMap.set(id, { ...m, otherUser });
+                        }
+                    }
                 });
-                
+
                 const formattedConvs = Array.from(sendersMap.values()).map(lastMsg => {
-                    const senderId = lastMsg.sender_id || lastMsg.senderId || (lastMsg.sender && lastMsg.sender.id) || "Unknown";
+                    const senderId = lastMsg.sender_id === currentUser?.id ? lastMsg.receiver_id : lastMsg.sender_id;
+                    const senderName = lastMsg.otherUser?.name || `User ${senderId}`;
                     return {
                         id: senderId,
-                        name: `Contact ${senderId}`,
-                        initials: `C${senderId}`,
+                        name: senderName,
+                        initials: senderName.substring(0, 2).toUpperCase(),
                         gradient: "from-blue-500 to-indigo-600",
                         lastMessage: lastMsg.content || "No message",
                         time: lastMsg.timestamp ? new Date(lastMsg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "",
                         unread: 0,
                     };
                 });
+
+                if (requestedUserId && !formattedConvs.some((conv) => String(conv.id) === String(requestedUserId))) {
+                    const fallbackName = requestedName || `User ${requestedUserId}`;
+                    formattedConvs.unshift({
+                        id: Number(requestedUserId),
+                        name: fallbackName,
+                        initials: fallbackName.substring(0, 2).toUpperCase(),
+                        gradient: "from-blue-500 to-indigo-600",
+                        lastMessage: "Start the conversation",
+                        time: "",
+                        unread: 0,
+                    });
+                }
                 setConversations(formattedConvs);
             } catch (err) {
                 console.error("Failed to fetch inbox:", err);
@@ -49,12 +109,14 @@ export default function Messages() {
         fetchInbox();
         const interval = setInterval(fetchInbox, 10000); // Polling inbox
         return () => clearInterval(interval);
-    }, []);
+    }, [currentUser, requestedUserId, requestedName]);
 
     // Poll active chat thread every 3 seconds
     useEffect(() => {
         if (!activeId) {
             setMessages([]);
+            setSelectedMessageIds([]);
+            setSelectionMode(false);
             return;
         }
 
@@ -62,12 +124,14 @@ export default function Messages() {
             try {
                 const thread = await MessagesAPI.getThread(activeId);
                 if (!Array.isArray(thread)) return;
-                
+
                 const formattedMsgs = thread.map((m, idx) => ({
                     id: m.id || idx,
                     from: currentUser && (m.sender_id === currentUser.id || m.senderId === currentUser.id) ? "me" : "them",
                     text: m.content,
-                    time: m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""
+                    time: m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "",
+                    attachment: m.attachment || null,
+                    canDelete: currentUser && (m.sender_id === currentUser.id || m.senderId === currentUser.id),
                 }));
                 setMessages(formattedMsgs);
             } catch (err) {
@@ -80,27 +144,87 @@ export default function Messages() {
         return () => clearInterval(interval);
     }, [activeId, currentUser]);
 
-    const active = conversations.find((c) => c.id === activeId);
+    const active =
+        conversations.find((c) => String(c.id) === String(activeId)) ||
+        (requestedUserId
+            ? {
+                  id: Number(requestedUserId),
+                  name: requestedName || `User ${requestedUserId}`,
+                  initials: (requestedName || `User ${requestedUserId}`).substring(0, 2).toUpperCase(),
+                  gradient: "from-blue-500 to-indigo-600",
+              }
+            : null);
 
     const handleSend = async (e) => {
         e.preventDefault();
-        if (!newMsg.trim() || !activeId) return;
+        if ((!newMsg.trim() && !attachment) || !activeId) return;
 
         try {
-            await MessagesAPI.sendMessage(activeId, newMsg);
-            
+            await MessagesAPI.sendMessage(activeId, newMsg, attachment);
+
             // Optimistic update
             const optimisticMsg = {
                 id: Date.now(),
                 from: "me",
-                text: newMsg,
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                text: newMsg || attachment?.name || "",
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                attachment,
             };
             setMessages((prev) => [...prev, optimisticMsg]);
             setNewMsg("");
+            setAttachment(null);
         } catch (error) {
             console.error("Failed to send message:", error);
         }
+    };
+
+    const toggleSelectionMode = () => {
+        setSelectionMode((prev) => !prev);
+        setSelectedMessageIds([]);
+    };
+
+    const toggleMessageSelection = (messageId) => {
+        setSelectedMessageIds((prev) =>
+            prev.includes(messageId)
+                ? prev.filter((id) => id !== messageId)
+                : [...prev, messageId]
+        );
+    };
+
+    const handleDeleteSelected = async () => {
+        if (!selectedMessageIds.length) return;
+
+        try {
+            const response = await MessagesAPI.deleteMessages(selectedMessageIds);
+            const deletedIds = response?.deleted_ids || selectedMessageIds;
+            setMessages((prev) => prev.filter((msg) => !deletedIds.includes(msg.id)));
+            setSelectedMessageIds([]);
+            setSelectionMode(false);
+        } catch (error) {
+            console.error("Failed to delete selected messages:", error);
+        }
+    };
+
+    const handleFileSelect = (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        if (file.size > 5 * 1024 * 1024) {
+            console.error("Attachment too large");
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            setAttachment({
+                name: file.name,
+                type: file.type || "application/octet-stream",
+                size: file.size,
+                data_url: reader.result,
+            });
+        };
+        reader.readAsDataURL(file);
+        event.target.value = "";
     };
 
     return (
@@ -123,7 +247,10 @@ export default function Messages() {
                         {conversations.map((conv) => (
                             <button
                                 key={conv.id}
-                                onClick={() => setActiveId(conv.id)}
+                                onClick={() => {
+                                    setActiveId(conv.id);
+                                    setSearchParams({ user: conv.id, name: conv.name }, { replace: true });
+                                }}
                                 className={`w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-gray-50 transition border-b border-gray-50 ${activeId === conv.id ? "bg-blue-50/50" : ""
                                     }`}
                             >
@@ -163,6 +290,7 @@ export default function Messages() {
                             {/* Back button (mobile) */}
                             <button
                                 onClick={() => setActiveId(null)}
+                                onClickCapture={() => setSearchParams({}, { replace: true })}
                                 className="sm:hidden text-gray-500 hover:text-gray-700 transition"
                             >
                                 <span className="material-icons-round">
@@ -180,6 +308,28 @@ export default function Messages() {
                                 </p>
                                 <p className="text-xs text-green-500">Online</p>
                             </div>
+                            <div className="ml-auto flex items-center gap-2">
+                                {selectionMode && selectedMessageIds.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={handleDeleteSelected}
+                                        className="px-3 py-2 rounded-xl bg-red-50 text-red-600 text-xs font-semibold hover:bg-red-100 transition"
+                                    >
+                                        Delete Selected ({selectedMessageIds.length})
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={toggleSelectionMode}
+                                    className={`px-3 py-2 rounded-xl text-xs font-semibold transition ${
+                                        selectionMode
+                                            ? "bg-gray-900 text-white"
+                                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                    }`}
+                                >
+                                    {selectionMode ? "Cancel" : "Select"}
+                                </button>
+                            </div>
                         </div>
 
                         {/* Messages */}
@@ -188,25 +338,53 @@ export default function Messages() {
                                 <div
                                     key={msg.id}
                                     className={`flex ${msg.from === "me"
-                                            ? "justify-end"
-                                            : "justify-start"
+                                        ? "justify-end"
+                                        : "justify-start"
                                         }`}
                                 >
-                                    <div
-                                        className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${msg.from === "me"
-                                                ? "bg-primary text-white rounded-br-md"
-                                                : "bg-gray-100 text-gray-900 rounded-bl-md"
+                                    <div className="flex items-start gap-2 max-w-[85%]">
+                                        {selectionMode && msg.canDelete && (
+                                            <label className="pt-2">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedMessageIds.includes(msg.id)}
+                                                    onChange={() => toggleMessageSelection(msg.id)}
+                                                    className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                                />
+                                            </label>
+                                        )}
+                                        <div
+                                            className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
+                                                msg.from === "me"
+                                                    ? "bg-primary text-white rounded-br-md"
+                                                    : "bg-gray-100 text-gray-900 rounded-bl-md"
+                                            } ${
+                                                selectedMessageIds.includes(msg.id)
+                                                    ? "ring-2 ring-primary/30"
+                                                    : ""
                                             }`}
-                                    >
-                                        <p>{msg.text}</p>
-                                        <p
-                                            className={`text-[10px] mt-1 ${msg.from === "me"
+                                        >
+                                            <div className="whitespace-pre-wrap break-words">
+                                                {renderMessageContent(msg.text)}
+                                            </div>
+                                            {msg.attachment?.data_url && (
+                                                <a
+                                                    href={msg.attachment.data_url}
+                                                    download={msg.attachment.name}
+                                                    className={`mt-2 block text-xs underline ${msg.from === "me" ? "text-blue-100" : "text-primary"}`}
+                                                >
+                                                    {msg.attachment.name}
+                                                </a>
+                                            )}
+                                            <p
+                                                className={`text-[10px] mt-1 ${msg.from === "me"
                                                     ? "text-blue-200"
                                                     : "text-gray-400"
-                                                }`}
-                                        >
-                                            {msg.time}
-                                        </p>
+                                                    }`}
+                                            >
+                                                {msg.time}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
@@ -217,6 +395,10 @@ export default function Messages() {
                             onSubmit={handleSend}
                             className="flex items-center gap-2 px-4 py-3 border-t border-gray-100 flex-shrink-0"
                         >
+                            <label className="w-10 h-10 rounded-xl border border-gray-200 bg-white text-gray-500 flex items-center justify-center hover:bg-gray-50 cursor-pointer transition flex-shrink-0">
+                                <span className="material-icons-round text-lg">attach_file</span>
+                                <input type="file" className="hidden" onChange={handleFileSelect} />
+                            </label>
                             <input
                                 type="text"
                                 value={newMsg}
@@ -233,6 +415,11 @@ export default function Messages() {
                                 </span>
                             </button>
                         </form>
+                        {attachment && (
+                            <div className="px-4 pb-3 text-xs text-gray-500">
+                                Attached: <span className="font-medium text-gray-700">{attachment.name}</span>
+                            </div>
+                        )}
                     </div>
                 ) : (
                     /* Empty state (mobile when no chat selected) */

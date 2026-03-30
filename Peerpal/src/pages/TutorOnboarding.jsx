@@ -1,5 +1,7 @@
 import { useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { TutorAPI } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
 /* ───────────────────────────── constants ───────────────────────────── */
 
@@ -468,8 +470,8 @@ function StepQualifications({ data, onChange }) {
                     onChange({ ...data, experience: opt })
                   }
                   className={`py-3 rounded-xl text-sm font-semibold border-2 transition-all ${active
-                      ? "border-tutor bg-teal-50 text-tutor"
-                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                    ? "border-tutor bg-teal-50 text-tutor"
+                    : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
                     }`}
                 >
                   {opt} {opt === "4+" ? "yrs" : opt === "< 1" ? "yr" : "yrs"}
@@ -495,8 +497,8 @@ function StepQualifications({ data, onChange }) {
                     onChange({ ...data, avgMark: opt })
                   }
                   className={`py-3 rounded-xl text-sm font-semibold border-2 transition-all ${active
-                      ? "border-tutor bg-teal-50 text-tutor"
-                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                    ? "border-tutor bg-teal-50 text-tutor"
+                    : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
                     }`}
                 >
                   {opt}
@@ -577,8 +579,8 @@ function StepRates({ data, onChange }) {
                     onChange({ ...data, format: f.id })
                   }
                   className={`flex flex-col items-center gap-2 py-4 rounded-xl border-2 transition-all duration-200 ${active
-                      ? "border-tutor bg-teal-50 shadow-sm"
-                      : "border-gray-200 bg-white hover:border-gray-300"
+                    ? "border-tutor bg-teal-50 shadow-sm"
+                    : "border-gray-200 bg-white hover:border-gray-300"
                     }`}
                 >
                   <span
@@ -613,8 +615,8 @@ function StepRates({ data, onChange }) {
                   type="button"
                   onClick={() => toggleDay(day)}
                   className={`px-4 py-2 rounded-full text-sm font-semibold border-2 transition-all ${active
-                      ? "border-tutor bg-tutor text-white"
-                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                    ? "border-tutor bg-tutor text-white"
+                    : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
                     }`}
                 >
                   {day}
@@ -638,8 +640,8 @@ function StepRates({ data, onChange }) {
                   type="button"
                   onClick={() => toggleSlot(slot)}
                   className={`py-3 rounded-xl text-sm font-semibold border-2 transition-all ${active
-                      ? "border-tutor bg-teal-50 text-tutor"
-                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                    ? "border-tutor bg-teal-50 text-tutor"
+                    : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
                     }`}
                 >
                   {slot}
@@ -782,6 +784,7 @@ function StepDone({ data }) {
 
 export default function TutorOnboarding() {
   const navigate = useNavigate();
+  const { refreshUser } = useAuth();
   const [step, setStep] = useState(1);
 
   const [data, setData] = useState({
@@ -844,8 +847,24 @@ export default function TutorOnboarding() {
     if (step > 1) setStep(step - 1);
   };
 
-  const finish = () => {
-    navigate("/tutor/dashboard");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const finish = async () => {
+    try {
+      setIsSubmitting(true);
+      await TutorAPI.createProfile({
+        subjects: data.subjects,
+        bio: data.bio,
+        availability: "Flexible"
+      });
+      await refreshUser();
+      navigate("/tutor/dashboard");
+    } catch (err) {
+      console.error("Failed to create profile", err);
+      alert("There was an error saving your profile.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const renderStep = () => {
@@ -914,8 +933,8 @@ export default function TutorOnboarding() {
               onClick={next}
               disabled={!canContinue()}
               className={`inline-flex items-center gap-2 px-8 py-3 rounded-full font-semibold shadow-lg transition-all hover:-translate-y-0.5 ${canContinue()
-                  ? "bg-tutor text-white shadow-tutor/20 hover:bg-teal-700"
-                  : "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none hover:translate-y-0"
+                ? "bg-tutor text-white shadow-tutor/20 hover:bg-teal-700"
+                : "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none hover:translate-y-0"
                 }`}
             >
               Continue
@@ -928,7 +947,7 @@ export default function TutorOnboarding() {
               onClick={finish}
               className="inline-flex items-center gap-2 px-8 py-3 rounded-full font-semibold bg-tutor text-white shadow-lg shadow-tutor/20 hover:bg-teal-700 transition-all hover:-translate-y-0.5 w-full justify-center"
             >
-              Go to Dashboard
+              {isSubmitting ? 'Saving...' : 'Go to Dashboard'}
               <span className="material-icons-round text-lg">
                 arrow_forward
               </span>

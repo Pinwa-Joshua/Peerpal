@@ -1,5 +1,7 @@
 import { useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { UsersAPI } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
 /* ───────────────────────────── constants ───────────────────────────── */
 
@@ -662,7 +664,10 @@ function StepDone({ data }) {
 
 export default function StudentOnboarding() {
     const navigate = useNavigate();
+    const { refreshUser } = useAuth();
     const [step, setStep] = useState(1);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState("");
 
     const [data, setData] = useState({
         /* step 1 */
@@ -709,8 +714,33 @@ export default function StudentOnboarding() {
         if (step > 1) setStep(step - 1);
     };
 
-    const finish = () => {
-        navigate("/dashboard");
+    const finish = async () => {
+        setIsSubmitting(true);
+        setError("");
+
+        try {
+            await UsersAPI.updateProfile({
+                full_name: data.displayName.trim(),
+                photo: data.photo,
+                bio: data.bio.trim(),
+                university: data.university.trim(),
+                campus: data.campus.trim(),
+                year: data.year,
+                faculty: data.faculty.trim(),
+                subjects: data.subjects,
+                preferred_format: data.format,
+                preferred_days: data.days,
+                budget_min: data.budgetMin,
+                budget_max: data.budgetMax,
+            });
+            await refreshUser();
+            navigate("/dashboard");
+        } catch (submitError) {
+            console.error("Failed to save student onboarding", submitError);
+            setError(submitError.message || "There was an error saving your profile.");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const renderStep = () => {
@@ -752,6 +782,13 @@ export default function StudentOnboarding() {
 
             {/* Step content — scrollable with hidden scrollbar */}
             <div className="flex-1 overflow-y-auto scrollbar-hide">
+                {error && (
+                    <div className="max-w-md mx-auto mt-6 px-6">
+                        <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
+                            {error}
+                        </div>
+                    </div>
+                )}
                 {renderStep()}
             </div>
 
@@ -789,9 +826,10 @@ export default function StudentOnboarding() {
                     ) : (
                         <button
                             onClick={finish}
+                            disabled={isSubmitting}
                             className="inline-flex items-center gap-2 px-8 py-3 rounded-full font-semibold bg-primary text-white shadow-lg shadow-primary/20 hover:bg-blue-800 transition-all hover:-translate-y-0.5 w-full justify-center"
                         >
-                            Go to Dashboard
+                            {isSubmitting ? "Saving..." : "Go to Dashboard"}
                             <span className="material-icons-round text-lg">
                                 arrow_forward
                             </span>

@@ -47,7 +47,7 @@ export default function SessionRequests() {
 
     const handleDecline = async () => {
         try {
-            await MatchesAPI.rejectSession(declineModal);
+            await MatchesAPI.rejectSession(declineModal, declineReason);
             fetchRequests();
         } catch (error) {
             console.error("Failed to decline session:", error);

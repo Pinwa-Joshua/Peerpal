@@ -10,6 +10,7 @@ import RoleSelection from "./pages/RoleSelection";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import StudentOnboarding from "./pages/StudentOnboarding";
 import StudentLearningQuiz from "./pages/StudentLearningQuiz";
 import TutorLearningQuiz from "./pages/TutorLearningQuiz";
@@ -18,6 +19,7 @@ import TutorLearningQuiz from "./pages/TutorLearningQuiz";
 import DashboardLayout from "./layouts/DashboardLayout";
 import DashboardHome from "./pages/dashboard/DashboardHome";
 import BrowseTutors from "./pages/dashboard/BrowseTutors";
+import TutorProfile from "./pages/dashboard/TutorProfile";
 import MySessions from "./pages/dashboard/MySessions";
 import Messages from "./pages/dashboard/Messages";
 import Progress from "./pages/dashboard/Progress";
@@ -73,6 +75,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/onboarding/student" element={<StudentOnboarding />} />
         <Route path="/onboarding/student/quiz" element={<StudentLearningQuiz />} />
         <Route path="/onboarding/tutor" element={<TutorOnboarding />} />
@@ -82,6 +85,7 @@ function App() {
         <Route path="/dashboard" element={<DashboardLayout />}>
           <Route index element={<DashboardHome />} />
           <Route path="browse" element={<BrowseTutors />} />
+          <Route path="tutors/:id" element={<TutorProfile />} />
           <Route path="sessions" element={<MySessions />} />
           <Route path="sessions/:id" element={<SessionDetail />} />
           <Route path="messages" element={<Messages />} />

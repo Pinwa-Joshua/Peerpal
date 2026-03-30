@@ -1,18 +1,24 @@
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-const API_BASE_URL = "http://localhost:8000/api";
+const API_BASE_URL = "http://localhost:5000/api";
 
 const apiCall = async (endpoint, options = {}) => {
     if (!API_BASE_URL) throw new Error("API base URL is not defined.");
 
     const token = localStorage.getItem("access_token");
+    if (token === "undefined" || token === "null") {
+        localStorage.removeItem("access_token");
+    }
+
+    const validToken = localStorage.getItem("access_token");
     const headers = {
         "Content-Type": "application/json",
         ...options.headers,
     };
-    if (token) headers.Authorization = `Bearer ${token}`;
+    if (validToken) headers.Authorization = `Bearer ${validToken}`;
 
     const config = {
         ...options,
+        cache: "no-store",
         headers,
     };
 
@@ -43,6 +49,12 @@ export const AuthAPI = {
     register: async (userDetails) => {
         return await apiCall('/auth/register', { method: 'POST', body: JSON.stringify(userDetails) });
     },
+    forgotPassword: async (email) => {
+        return await apiCall('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) });
+    },
+    resetPassword: async (token, password) => {
+        return await apiCall('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) });
+    },
     getMe: async () => {
         return await apiCall('/auth/me', { method: 'GET' });
     }
@@ -62,20 +74,24 @@ export const TutorAPI = {
 
 export const MatchesAPI = {
     recommendMatch: (data) => apiCall('/matches/recommend', { method: 'POST', body: JSON.stringify(data) }),
-    createSession: async (tutor_id) => apiCall('/sessions/create', { method: 'POST', body: JSON.stringify({ tutor_id }) }),
+    createSession: async (sessionData) => apiCall('/sessions/create', { method: 'POST', body: JSON.stringify(sessionData) }),
     recommendTutor: async (data = {}) => apiCall('/matches/recommend', { method: 'POST', body: JSON.stringify(data) }),
     getMySessions: async () => apiCall('/sessions/'),
     getSessions: async (status = '') => {
         return await apiCall(status ? `/sessions/?status=${status}` : '/sessions/');
     },
     acceptSession: async (id) => apiCall(`/sessions/${id}/accept`, { method: "POST" }),
-    rejectSession: async (id) => apiCall(`/sessions/${id}/reject`, { method: "POST" })
+    rejectSession: async (id, reason = "") => apiCall(`/sessions/${id}/reject`, { method: "POST", body: JSON.stringify({ reason }) })
 };
 
 export const MessagesAPI = {
     getInbox: async () => apiCall('/messages/inbox', { method: 'GET' }),
     getThread: async (userId) => apiCall(`/messages/thread/${userId}`, { method: 'GET' }),
-    sendMessage: async (receiverId, content) => apiCall('/messages/send', { method: 'POST', body: JSON.stringify({ receiver_id: receiverId, content }) })
+    deleteMessages: async (messageIds) =>
+        apiCall('/messages/delete-many', { method: 'POST', body: JSON.stringify({ message_ids: messageIds }) }),
+    deleteMessage: async (messageId) => apiCall(`/messages/${messageId}`, { method: 'DELETE' }),
+    sendMessage: async (receiverId, content, attachment = null) =>
+        apiCall('/messages/send', { method: 'POST', body: JSON.stringify({ receiver_id: receiverId, content, attachment }) })
 };
 
 export const ProgressAPI = {
@@ -86,8 +102,23 @@ export const ProgressAPI = {
 export const NotificationsAPI = {
     getUnread: async () => apiCall('/notifications/unread'),
     markAsRead: async (id) => apiCall(`/notifications/${id}/read`, { method: 'POST' }),
-    markAllAsRead: async () => apiCall('/notifications/read-all', { method: 'POST' })
+    markAllAsRead: async () => apiCall('/notifications/read-all', { method: 'POST' }),
+    // Add this:
+    getNotifications: async () => apiCall('/notifications/'),
+};
+
+export const AdminAPI = {
+    getOverview: async () => apiCall('/admin/overview'),
+    getUsers: async (params = {}) => {
+        const query = new URLSearchParams(params).toString();
+        return await apiCall(query ? `/admin/users?${query}` : '/admin/users');
+    },
+    getSessions: async (params = {}) => {
+        const query = new URLSearchParams(params).toString();
+        return await apiCall(query ? `/admin/sessions?${query}` : '/admin/sessions');
+    },
+    getFeedback: async () => apiCall('/admin/feedback'),
+    getPayouts: async () => apiCall('/admin/payouts'),
 };
 
 // Trigger HMR
-

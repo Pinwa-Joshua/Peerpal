@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-
 import { MatchesAPI } from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
 
 export default function DashboardHome() {
+    const { user } = useAuth();
 
 
     const [stats, setStats] = useState([
@@ -48,11 +49,7 @@ export default function DashboardHome() {
 
                 // We can't fetch real tutors yet because TutorAPI may not have a getTutors exported. 
                 // We'll fallback to context or empty array for now until TutorAPI is fully ready.
-                if (feedback?.tutorProfiles?.length) {
-                    setRecommendedTutors(feedback.tutorProfiles.slice(0, 3));
-                } else {
-                    setRecommendedTutors([]);
-                }
+                setRecommendedTutors([]);
             } catch (error) {
                 console.error("Failed to load dashboard data", error);
             } finally {
@@ -61,7 +58,7 @@ export default function DashboardHome() {
         };
 
         fetchDashboardData();
-    }, [feedback]);
+    }, []);
 
     const actionButtonClass =
         "inline-flex items-center gap-2 rounded-full border-2 border-primary px-5 py-2.5 text-sm font-semibold text-primary transition hover:bg-blue-50";
@@ -128,6 +125,41 @@ export default function DashboardHome() {
                     Messages
                 </Link>
             </div>
+
+            {user?.role !== "tutor" && (
+                <section className="rounded-[2rem] border border-emerald-100 bg-[linear-gradient(135deg,#ecfdf5_0%,#ffffff_48%,#eff6ff_100%)] p-6 shadow-soft">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="max-w-2xl">
+                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-700">
+                                Grow On PeerPal
+                            </p>
+                            <h2 className="mt-2 text-2xl font-display font-bold text-gray-900">
+                                Want to teach too? Become a tutor from this account.
+                            </h2>
+                            <p className="mt-2 text-sm leading-relaxed text-gray-600">
+                                If you also want to tutor other students, you can start the tutor onboarding flow from here.
+                                Once you complete it, your account will be upgraded for tutor access.
+                            </p>
+                        </div>
+                        <div className="flex flex-col gap-3 sm:flex-row">
+                            <Link
+                                to="/onboarding/tutor/quiz"
+                                className="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+                            >
+                                <span className="material-icons-round text-lg">school</span>
+                                Become a Tutor
+                            </Link>
+                            <Link
+                                to="/dashboard/settings"
+                                className="inline-flex items-center justify-center gap-2 rounded-full border border-emerald-200 bg-white px-6 py-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50"
+                            >
+                                <span className="material-icons-round text-lg">manage_accounts</span>
+                                Review Profile
+                            </Link>
+                        </div>
+                    </div>
+                </section>
+            )}
 
             <section>
                 <div className="flex items-center justify-between mb-4">
@@ -261,7 +293,7 @@ export default function DashboardHome() {
                                     R{tutor.rate}/hr
                                 </span>
                                 <Link
-                                    to={`/dashboard/tutor/${tutor.id}`}
+                                    to={`/dashboard/tutors/${tutor.id}`}
                                     className="text-sm font-semibold text-primary hover:text-blue-800 transition"
                                 >
                                     View Profile

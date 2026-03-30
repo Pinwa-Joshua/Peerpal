@@ -202,7 +202,7 @@ export default function Login() {
                         <p className="mt-6 text-center text-sm text-gray-500">
                             Don't have an account?{" "}
                             <Link
-                                to={`/signup?role=${role}`}
+                                to="/get-started"
                                 className="text-primary font-semibold hover:underline"
                             >
                                 Sign up

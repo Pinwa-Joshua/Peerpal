@@ -112,6 +112,12 @@ export default function AdminLogin() {
                                     >
                                         Password
                                     </label>
+                                    <Link
+                                        to="/forgot-password"
+                                        className="text-xs text-purple-700 font-semibold hover:underline"
+                                    >
+                                        Forgot password?
+                                    </Link>
                                 </div>
                                 <div className="relative">
                                     <span className="material-icons-round absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">

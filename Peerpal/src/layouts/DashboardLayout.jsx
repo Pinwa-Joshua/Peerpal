@@ -22,7 +22,7 @@ export default function DashboardLayout() {
     const [notifications, setNotifications] = useState([]);
     const notificationsRef = useRef(null);
     const navigate = useNavigate();
-    const { logout } = useAuth();
+    const { user, logout } = useAuth();
 
     const handleLogout = () => {
         logout();
@@ -114,15 +114,15 @@ export default function DashboardLayout() {
                 {/* User */}
                 <div className="flex items-center gap-3 px-3 py-2">
                     <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                        S
+                        {user?.full_name ? user.full_name.charAt(0).toUpperCase() : 'S'}
                     </div>
                     {(!collapsed || isMobile) && (
                         <div className="min-w-0">
                             <p className="text-sm font-semibold text-gray-900 truncate">
-                                Student
+                                {user?.full_name || 'Student'}
                             </p>
                             <p className="text-xs text-gray-400 truncate">
-                                student@uni.ac.za
+                                {user?.email || 'student@uni.ac.za'}
                             </p>
                         </div>
                     )}
@@ -274,7 +274,7 @@ export default function DashboardLayout() {
                             to="/dashboard/settings"
                             className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white text-sm font-bold"
                         >
-                            S
+                            {user?.full_name ? user.full_name.charAt(0).toUpperCase() : 'S'}
                         </Link>
                     </div>
                 </header>

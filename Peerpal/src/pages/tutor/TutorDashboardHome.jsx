@@ -2,8 +2,11 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { MatchesAPI } from "../../services/api";
 
+const NAIRA_SYMBOL = "\u20A6";
+const WAVING_HAND = "\u{1F44B}";
+
 const REVIEWS = [
-    { student: "Lerato M.", rating: 5, text: "Explains concepts so clearly � best tutor I've had!", date: "2 days ago" },
+    { student: "Lerato M.", rating: 5, text: "Explains concepts so clearly - best tutor I've had!", date: "2 days ago" },
     { student: "Sipho N.", rating: 5, text: "Very patient and thorough. Helped me ace my test.", date: "5 days ago" },
     { student: "Amara L.", rating: 4, text: "Good session, covered a lot of ground.", date: "1 week ago" },
 ];
@@ -31,12 +34,12 @@ export default function TutorDashboardHome() {
     const completedSessions = sessions.filter((s) => s.status === "completed");
 
     const totalSessions = completedSessions.length;
-    const activeStudents = new Set(upcomingSessions.map(s => s.tutee_id)).size || 0;
+    const activeStudents = new Set(upcomingSessions.map((s) => s.tutee_id)).size || 0;
 
     const STATS = [
         { label: "Sessions Taught", value: totalSessions.toString(), icon: "school", color: "bg-teal-50 text-tutor" },
         { label: "Active Students", value: activeStudents.toString(), icon: "groups", color: "bg-blue-50 text-blue-600" },
-        { label: "Total Earned", value: "?" + (totalSessions * 500).toString(), icon: "payments", color: "bg-emerald-50 text-emerald-600" },
+        { label: "Total Earned", value: `${NAIRA_SYMBOL}${(totalSessions * 500).toLocaleString()}`, icon: "payments", color: "bg-emerald-50 text-emerald-600" },
         { label: "Avg Rating", value: "4.9", icon: "star", color: "bg-amber-50 text-amber-600" },
     ];
 
@@ -49,7 +52,7 @@ export default function TutorDashboardHome() {
             <div>
                 <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-gray-900">
                     Welcome back, Tutor{" "}
-                    <span className="inline-block animate-bounce">??</span>
+                    <span className="inline-block animate-bounce" aria-label="waving hand">{WAVING_HAND}</span>
                 </h1>
                 <p className="text-gray-500 mt-1">
                     Here's an overview of your tutoring activity.
@@ -127,7 +130,7 @@ export default function TutorDashboardHome() {
                                             className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-400 to-tutor flex flex-col items-center justify-center text-white flex-shrink-0 shadow-inner"
                                         >
                                             <span className="text-xs font-bold uppercase">
-                                                {new Date(session.date).toLocaleString('en-US', { month: 'short' })}
+                                                {new Date(session.date).toLocaleString("en-US", { month: "short" })}
                                             </span>
                                             <span className="text-lg font-black leading-none">
                                                 {new Date(session.date).getDate()}
@@ -138,9 +141,9 @@ export default function TutorDashboardHome() {
                                                 {session.subject}
                                             </h3>
                                             <p className="text-sm text-gray-500 truncate flex items-center gap-1.5">
-                                                Student: {session.tutee_name || `ID: ${session.tutee_id}`}
+                                                Student: {session.tuteeName || session.tutee_name || session.partner_name || "Unknown Student"}
                                                 <span className="w-1 h-1 rounded-full bg-gray-300"></span>
-                                                {session.session_type || "Online"}
+                                                {session.session_type || session.format || "Online"}
                                             </p>
                                         </div>
                                         <Link
@@ -189,7 +192,7 @@ export default function TutorDashboardHome() {
                                                 </div>
                                                 <div>
                                                     <p className="font-semibold text-gray-900 text-sm">
-                                                        {req.tutee_name}
+                                                        {req.tuteeName || req.tutee_name || req.partner_name || "Unknown Student"}
                                                     </p>
                                                     <p className="text-xs text-gray-500">
                                                         {req.subject}

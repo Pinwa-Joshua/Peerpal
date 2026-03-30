@@ -6,6 +6,39 @@ from ..models import User, Tutor, TimeSlot
 tutors_bp = Blueprint("tutors", __name__)
 
 # GET ALL TUTORS
+@tutors_bp.route("/create", methods=["OPTIONS", "POST"])
+def create_tutor_profile():
+    if request.method == "OPTIONS":
+        return jsonify({}), 200
+        
+    @jwt_required()
+    def _create():
+        user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        tutor = Tutor.query.filter_by(user_id=user_id).first()
+        if not tutor:
+            tutor = Tutor(user_id=user_id)
+            db.session.add(tutor)
+            
+        subjects = data.get('subjects', [])
+        if isinstance(subjects, list):
+            tutor.subjects = ', '.join(subjects)
+        else:
+            tutor.subjects = subjects
+            
+        tutor.experience_level = data.get('experience_level', 'Intermediate')
+        
+        # Make sure user role is updated to tutor
+        user = User.query.get(user_id)
+        if user and user.role != 'tutor':
+            user.role = 'tutor'
+            
+        db.session.commit()
+        return jsonify({"message": "Profile created successfully"}), 201
+
+    return _create()
+
 @tutors_bp.route("/", methods=["GET"])
 def get_all_tutors():
     tutors = Tutor.query.join(User).all()

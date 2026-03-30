@@ -31,10 +31,10 @@ export default function TutorSessions() {
              return {
                  id: s.id,
                  tab,
-                 student: s.tutee_name || `Student ${s.tutee_id}`,
+                 student: s.tuteeName || s.tutee_name || s.partner_name || "Unknown Student",
                  subject: s.subject || "Subject",
-                 date: new Date(s.date).toLocaleString(),
-                 format: s.session_type || "online",
+                 date: s.date ? new Date(s.date).toLocaleString() : "TBD",
+                 format: s.session_type || s.format || "online",
                  status: s.status,
                  feedbackStatus: s.feedback_status || "pending"
              };
