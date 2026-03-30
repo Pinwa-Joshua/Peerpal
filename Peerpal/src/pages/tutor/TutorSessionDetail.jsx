@@ -1,7 +1,14 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { FeedbackStatusPill } from "../../components/feedback/FeedbackWidgets";
-import { MatchesAPI } from "../../services/api";
+import { MatchesAPI, FeedbackAPI } from "../../services/api";
+import { toast } from "sonner";
+import {
+  createEmptyRatings,
+  TUTOR_RATING_FIELDS,
+  SessionRatingForm,
+  SessionRatingSummary,
+} from "../../components/feedback/SessionRating";
 
 const STATUS_CFG = {
   accepted: { bg: "bg-green-50", text: "text-green-700", dot: "bg-green-500", label: "Confirmed" },
@@ -20,6 +27,55 @@ export default function TutorSessionDetail() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showCancel, setShowCancel] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false);
+
+  const [ratings, setRatings] = useState(createEmptyRatings(TUTOR_RATING_FIELDS));
+  const [submittedFeedback, setSubmittedFeedback] = useState(null);
+  const [status, setStatus] = useState({ type: "", message: "" });
+
+  const handleRate = (key, value) => {
+    setRatings((current) => ({ ...current, [key]: value }));
+  };
+
+  const handleComplete = async () => {
+    if (!window.confirm("Are you sure you want to mark this session as completed?")) return;
+    try {
+      setIsCompleting(true);
+      await MatchesAPI.completeSession(session.id);
+      setSession(prev => ({ ...prev, status: "completed" }));
+      toast.success("Session marked as completed");
+    } catch (err) {
+      console.error("Failed to complete session", err);
+      toast.error("Could not complete session");
+    } finally {
+      setIsCompleting(false);
+    }
+  };
+
+  const handleSubmitFeedback = async () => {
+    const values = Object.values(ratings);
+    if (values.includes(0)) {
+      toast.error("Please provide a rating for all fields.");
+      return;
+    }
+    const overallRating = Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10) / 10;
+    try {
+      await FeedbackAPI.submitFeedback({
+        session_id: id,
+        rating: overallRating,
+        comments: `Punctuality: ${ratings.punctuality || 0}, Preparedness: ${ratings.preparedness || 0}`
+      });
+
+      setSubmittedFeedback({
+        ratings,
+        overallRating,
+        submittedAt: new Date().toISOString(),
+      });
+      toast.success("Student rating submitted!");
+    } catch (err) {
+      toast.error(err.message || "Failed to submit feedback.");
+    }
+  };
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -144,13 +200,13 @@ export default function TutorSessionDetail() {
 
             <div className="flex flex-wrap gap-2 lg:flex-col">
               {isCompleted && session.feedbackStatus === "pending" && (
-                <Link
-                  to={`/tutor/dashboard/feedback/new/${session.id}`}
+                <button
+                  onClick={() => document.getElementById("feedback-section")?.scrollIntoView({ behavior: "smooth" })}
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-tutor px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-700"
                 >
                   <span className="material-icons-round text-lg">edit_note</span>
                   Submit Feedback
-                </Link>
+                </button>
               )}
               <Link
                 to={session.chatUserId ? `/tutor/dashboard/messages?user=${session.chatUserId}&name=${encodeURIComponent(session.student)}` : "/tutor/dashboard/messages"}
@@ -185,18 +241,37 @@ export default function TutorSessionDetail() {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <div className="space-y-6">
-          <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft">
+          <section id="feedback-section" className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-xl font-display font-bold text-gray-900">Feedback Status</h2>
                 <p className="text-sm text-gray-500">Track whether the student session evaluation still needs your attention.</p>
               </div>
               <FeedbackStatusPill
-                submitted={session.feedbackStatus !== "pending"}
-                label={session.feedbackStatus !== "pending" ? "Your evaluation submitted" : "Your evaluation pending"}
+                submitted={session.feedbackStatus !== "pending" || submittedFeedback}
+                label={session.feedbackStatus !== "pending" || submittedFeedback ? "Your evaluation submitted" : "Your evaluation pending"}
               />
             </div>
           </section>
+
+          {isCompleted && (session.feedbackStatus === "pending" && !submittedFeedback) && (
+            <SessionRatingForm
+              title="Rate Your Student"
+              subtitle="Use quick numeric ratings only. Written feedback is disabled to keep the process fast and objective."
+              fields={TUTOR_RATING_FIELDS}
+              ratings={ratings}
+              onRate={handleRate}
+              onSubmit={handleSubmitFeedback}
+              submitLabel="Submit student rating"
+              accent="tutor"
+            />
+          )}
+
+          {isCompleted && (session.feedbackStatus !== "pending" || submittedFeedback) && (
+            <section className="rounded-3xl border border-dashed border-gray-200 bg-white p-6 text-sm text-gray-500 shadow-soft">
+              Your feedback rating for the student is locked for this completed session.
+            </section>
+          )}
 
           {session.notes && (
             <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft">
@@ -212,18 +287,26 @@ export default function TutorSessionDetail() {
         <div className="space-y-6">
           <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft">
             <h2 className="text-xl font-display font-bold text-gray-900">Next Actions</h2>
-            <div className="mt-4 flex flex-col gap-3">
-              {isUpcoming && session.format === "online" && session.meetingLink && (
-                <a
-                  href={session.meetingLink}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-tutor px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-tutor/20 transition hover:-translate-y-0.5 hover:bg-teal-700"
-                >
-                  <span className="material-icons-round text-lg">videocam</span>
-                  Join Session
-                </a>
-              )}
+            <div className="mt-4 flex flex-col gap-3">                {isUpcoming && (
+              <button
+                onClick={handleComplete}
+                disabled={isCompleting}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-green-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-green-600/20 transition hover:-translate-y-0.5 hover:bg-green-700 disabled:opacity-50"
+              >
+                <span className="material-icons-round text-lg">check_circle</span>
+                {isCompleting ? "Completing..." : "Mark as Completed"}
+              </button>
+            )}              {isUpcoming && session.format === "online" && session.meetingLink && (
+              <a
+                href={session.meetingLink}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-tutor px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-tutor/20 transition hover:-translate-y-0.5 hover:bg-teal-700"
+              >
+                <span className="material-icons-round text-lg">videocam</span>
+                Join Session
+              </a>
+            )}
               {isCompleted && (
                 <Link
                   to="/tutor/dashboard/requests"

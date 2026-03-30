@@ -7,7 +7,7 @@ import {
   SessionRatingForm,
   SessionRatingSummary,
 } from "../../components/feedback/SessionRating";
-import { MatchesAPI } from "../../services/api";
+import { MatchesAPI, FeedbackAPI } from "../../services/api";
 
 const STATUS_CFG = {
   accepted: { bg: "bg-green-50", text: "text-green-700", dot: "bg-green-500", label: "Confirmed" },
@@ -117,7 +117,7 @@ export default function SessionDetail() {
     setRatings((current) => ({ ...current, [key]: value }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const values = Object.values(ratings).filter((value) => value > 0);
     if (!values.length) {
       setStatus({ type: "error", message: "Please rate at least one category." });
@@ -125,14 +125,23 @@ export default function SessionDetail() {
     }
 
     const overallRating = Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10) / 10;
-    setSubmittedFeedback({
-      ratings,
-      overallRating,
-      submittedAt: new Date().toISOString(),
-    });
-    setStatus({ type: "success", message: "Tutor rating submitted for this session." });
-  };
+    try {
+      await FeedbackAPI.submitFeedback({
+        session_id: id,
+        rating: overallRating,
+        comments: `Knowledge: ${ratings.knowledge || 0}, Comm: ${ratings.communication || 0}`
+      });
 
+      setSubmittedFeedback({
+        ratings,
+        overallRating,
+        submittedAt: new Date().toISOString(),
+      });
+      setStatus({ type: "success", message: "Tutor rating submitted for this session." });
+    } catch (err) {
+      setStatus({ type: "error", message: err.message || "Failed to submit feedback." });
+    }
+  };
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <button

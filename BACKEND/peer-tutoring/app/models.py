@@ -67,6 +67,7 @@ class Tutor(db.Model):
     active = db.Column(db.Boolean, default=True)
     verified = db.Column(db.Boolean, default=False)
     tutor_style = db.Column(db.String(50))
+    hourly_rate = db.Column(db.Float, default=0.0)
     
     # Relationship to time slots
     time_slots = db.relationship("TimeSlot", backref="tutor", lazy=True, cascade="all, delete-orphan")
@@ -225,3 +226,21 @@ class University(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), unique=True, nullable=False)
     country = db.Column(db.String(100), nullable=True)
+class Wallet(db.Model):
+    __tablename__ = 'wallets'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, unique=True)
+    balance = db.Column(db.Float, default=0.0)
+    user = db.relationship('User', backref=db.backref('wallet', uselist=False))
+
+class Transaction(db.Model):
+    __tablename__ = 'transactions'
+    id = db.Column(db.Integer, primary_key=True)
+    wallet_id = db.Column(db.Integer, db.ForeignKey('wallets.id'), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    transaction_type = db.Column(db.String(20), nullable=False) # 'credit', 'debit'
+    description = db.Column(db.String(255))
+    session_id = db.Column(db.Integer, db.ForeignKey('sessions.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    wallet = db.relationship('Wallet', backref=db.backref('transactions', lazy=True))
+

@@ -91,6 +91,35 @@ def complete_session(session_id):
 
     session.status = "completed"
 
+    try:
+        from ..models import Tutor, Wallet, Transaction
+        tutor_profile = Tutor.query.filter_by(user_id=session.tutor_id).first()
+        duration_hours = (session.duration or 60) / 60.0
+        hourly_rate = tutor_profile.hourly_rate if tutor_profile and tutor_profile.hourly_rate else 0.0
+        amount = duration_hours * hourly_rate
+        
+        # Deduct from tutee's wallet
+        tutee_wallet = Wallet.query.filter_by(user_id=session.tutee_id).first()
+        if not tutee_wallet:
+            tutee_wallet = Wallet(user_id=session.tutee_id, balance=0.0)
+            db.session.add(tutee_wallet)
+        
+        tutee_wallet.balance -= amount
+        tutee_transaction = Transaction(wallet_id=tutee_wallet.id, amount=-amount, transaction_type='debit', description=f'Payment for session {session.id}', session_id=session.id)
+        db.session.add(tutee_transaction)
+
+        # Add to tutor's wallet
+        tutor_wallet = Wallet.query.filter_by(user_id=session.tutor_id).first()
+        if not tutor_wallet:
+            tutor_wallet = Wallet(user_id=session.tutor_id, balance=0.0)
+            db.session.add(tutor_wallet)
+        
+        tutor_wallet.balance += amount
+        tutor_transaction = Transaction(wallet_id=tutor_wallet.id, amount=amount, transaction_type='credit', description=f'Earnings for session {session.id}', session_id=session.id)
+        db.session.add(tutor_transaction)
+    except Exception as e:
+        print("Finances calculation error:", e)
+
     notif = Notification(user_id=session.tutee_id, message="Your session has been completed")
     db.session.add(notif)
     db.session.commit()

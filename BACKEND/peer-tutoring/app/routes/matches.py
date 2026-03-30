@@ -219,7 +219,7 @@ def recommend_with_filters():
             0   # placeholder for other features
         ]
         
-        ml_score = final_match_score(
+        ml_score = final_match_score(   
             features,
             getattr(tutor_user, "tutor_style", None),
             getattr(learner, "learner_style", None)

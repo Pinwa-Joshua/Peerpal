@@ -81,6 +81,7 @@ export const MatchesAPI = {
         return await apiCall(status ? `/sessions/?status=${status}` : '/sessions/');
     },
     acceptSession: async (id) => apiCall(`/sessions/${id}/accept`, { method: "POST" }),
+    completeSession: async (id) => apiCall(`/sessions/${id}/complete`, { method: "POST" }),
     rejectSession: async (id, reason = "") => apiCall(`/sessions/${id}/reject`, { method: "POST", body: JSON.stringify({ reason }) })
 };
 
@@ -105,6 +106,10 @@ export const NotificationsAPI = {
     markAllAsRead: async () => apiCall('/notifications/read-all', { method: 'POST' }),
     // Add this:
     getNotifications: async () => apiCall('/notifications/'),
+};
+
+export const FeedbackAPI = {
+    submitFeedback: async (data) => apiCall('/feedback/submit', { method: 'POST', body: JSON.stringify(data) })
 };
 
 export const AdminAPI = {

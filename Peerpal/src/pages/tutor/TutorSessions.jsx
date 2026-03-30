@@ -24,20 +24,20 @@ export default function TutorSessions() {
           const apiSessions = Array.isArray(data) ? data : [];
           // Map backend format to component expectations
           const formatted = apiSessions.map(s => {
-             let tab = "upcoming";
-             if (s.status === "completed") tab = "completed";
-             else if (s.status === "cancelled" || s.status === "rejected") tab = "cancelled";
+            let tab = "upcoming";
+            if (s.status === "completed") tab = "completed";
+            else if (s.status === "cancelled" || s.status === "rejected") tab = "cancelled";
 
-             return {
-                 id: s.id,
-                 tab,
-                 student: s.tuteeName || s.tutee_name || s.partner_name || "Unknown Student",
-                 subject: s.subject || "Subject",
-                 date: s.date ? new Date(s.date).toLocaleString() : "TBD",
-                 format: s.session_type || s.format || "online",
-                 status: s.status,
-                 feedbackStatus: s.feedback_status || "pending"
-             };
+            return {
+              id: s.id,
+              tab,
+              student: s.tuteeName || s.tutee_name || s.partner_name || "Unknown Student",
+              subject: s.subject || "Subject",
+              date: s.date ? new Date(s.date).toLocaleString() : "TBD",
+              format: s.session_type || s.format || "online",
+              status: s.status,
+              feedbackStatus: s.feedback_status || "pending"
+            };
           });
           setSessions(formatted);
           setLoading(false);
@@ -113,7 +113,7 @@ export default function TutorSessions() {
                     <FeedbackStatusPill status={session.feedbackStatus} role="tutor" />
                     {session.feedbackStatus === "pending" ? (
                       <Link
-                        to={`/tutor/dashboard/feedback/new/${session.id}`}
+                        to={`/tutor/dashboard/sessions/${session.id}`}
                         className="w-full sm:w-auto text-center rounded-lg bg-tutor px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 transition"
                       >
                         Submit Feedback

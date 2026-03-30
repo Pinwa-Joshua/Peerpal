@@ -855,6 +855,8 @@ export default function TutorOnboarding() {
       await TutorAPI.createProfile({
         subjects: data.subjects,
         bio: data.bio,
+        experience_level: data.experience,
+        hourly_rate: data.rate,
         availability: "Flexible"
       });
       await refreshUser();
